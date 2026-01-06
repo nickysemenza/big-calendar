@@ -2,6 +2,7 @@ import type { Session, User } from "better-auth";
 
 export type Bindings = {
   DB: D1Database;
+  CACHE: KVNamespace;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
   BETTER_AUTH_SECRET: string;

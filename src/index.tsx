@@ -146,12 +146,12 @@ app.get("/", authMiddleware, async (c) => {
   let allEvents: CalendarEvent[] = [];
   let calendarInfos: CalendarInfo[] = [];
 
-  if (accessToken) {
+  if (accessToken && user) {
     try {
-      const calendars = await getCalendarList(accessToken);
-      allEvents = await getEvents(accessToken, calendars, year, showTimed);
+      const calendars = await getCalendarList(accessToken, c.env.CACHE, user.id);
+      allEvents = await getEvents(accessToken, calendars, year, c.env.CACHE, user.id);
 
-      // Compute event counts per calendar
+      // Compute event counts per calendar (before filtering timed)
       const countsByCalendar = new Map<string, number>();
       for (const event of allEvents) {
         const count = countsByCalendar.get(event.calendarId) || 0;
@@ -171,9 +171,10 @@ app.get("/", authMiddleware, async (c) => {
     }
   }
 
-  // Filter out hidden calendar events and optionally recurring events
+  // Filter events: hidden calendars, timed events (if not showing), recurring events (if hiding)
   const visibleEvents = allEvents.filter((e) => {
     if (hiddenSet.has(e.calendarId)) return false;
+    if (!showTimed && !e.isAllDay) return false;
     if (hideRecurring && e.isRecurring) return false;
     return true;
   });

@@ -52,9 +52,20 @@ function getCompanyHolidayEvents(year: number): CalendarEvent[] {
   }));
 }
 
+const CACHE_TTL = 60; // 1 minute
+
 export async function getCalendarList(
-  accessToken: string
+  accessToken: string,
+  cache: KVNamespace,
+  userId: string
 ): Promise<GoogleCalendar[]> {
+  // Check cache first
+  const cacheKey = `calendars:${userId}`;
+  const cached = await cache.get(cacheKey, "json");
+  if (cached) {
+    return cached as GoogleCalendar[];
+  }
+
   const res = await fetch(
     "https://www.googleapis.com/calendar/v3/users/me/calendarList",
     { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -68,29 +79,33 @@ export async function getCalendarList(
   const data = await res.json();
   const calendars = googleCalendarListSchema.parse(data).items;
 
-  // Try to add special calendars that don't appear in calendarList
-  for (const special of SPECIAL_CALENDARS) {
-    const alreadyExists = calendars.some((c) => c.id === special.id);
-    if (alreadyExists) continue;
+  // Try to add special calendars that don't appear in calendarList (in parallel)
+  const specialFetches = SPECIAL_CALENDARS
+    .filter((special) => !calendars.some((c) => c.id === special.id))
+    .map(async (special) => {
+      const specialRes = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(special.id)}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
 
-    // Try to fetch calendar metadata directly
-    const specialRes = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(special.id)}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
+      if (specialRes.ok) {
+        const cal = (await specialRes.json()) as {
+          id: string;
+          summary: string;
+          backgroundColor?: string;
+        };
+        return {
+          id: cal.id,
+          summary: cal.summary || special.name,
+          backgroundColor: cal.backgroundColor || special.color,
+        };
+      }
+      return null;
+    });
 
-    if (specialRes.ok) {
-      const cal = (await specialRes.json()) as {
-        id: string;
-        summary: string;
-        backgroundColor?: string;
-      };
-      calendars.push({
-        id: cal.id,
-        summary: cal.summary || special.name,
-        backgroundColor: cal.backgroundColor || special.color,
-      });
-    }
+  const specialResults = await Promise.all(specialFetches);
+  for (const cal of specialResults) {
+    if (cal) calendars.push(cal);
   }
 
   // Add virtual Company Holidays calendar
@@ -100,6 +115,9 @@ export async function getCalendarList(
     backgroundColor: COMPANY_HOLIDAYS_COLOR,
   });
 
+  // Store in cache
+  await cache.put(cacheKey, JSON.stringify(calendars), { expirationTtl: CACHE_TTL });
+
   return calendars;
 }
 
@@ -107,8 +125,16 @@ export async function getEvents(
   accessToken: string,
   calendars: GoogleCalendar[],
   year: number,
-  includeTimed: boolean = false
+  cache: KVNamespace,
+  userId: string
 ): Promise<CalendarEvent[]> {
+  // Check cache first
+  const cacheKey = `events:${userId}:${year}`;
+  const cached = await cache.get(cacheKey, "json");
+  if (cached) {
+    return cached as CalendarEvent[];
+  }
+
   const timeMin = `${year}-01-01T00:00:00Z`;
   const timeMax = `${year}-12-31T23:59:59Z`;
 
@@ -117,74 +143,82 @@ export async function getEvents(
   // Add company holidays (virtual calendar)
   events.push(...getCompanyHolidayEvents(year));
 
-  for (const calendar of calendars) {
-    // Skip virtual calendars
-    if (calendar.id.startsWith("virtual:")) {
-      continue;
-    }
+  // Fetch all calendars in parallel (always include timed events for caching)
+  const calendarFetches = calendars
+    .filter((calendar) => !calendar.id.startsWith("virtual:"))
+    .map(async (calendar) => {
+      const url = new URL(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.id)}/events`
+      );
+      url.searchParams.set("timeMin", timeMin);
+      url.searchParams.set("timeMax", timeMax);
+      url.searchParams.set("singleEvents", "true");
+      url.searchParams.set("maxResults", "2500");
 
-    const url = new URL(
-      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.id)}/events`
-    );
-    url.searchParams.set("timeMin", timeMin);
-    url.searchParams.set("timeMax", timeMax);
-    url.searchParams.set("singleEvents", "true");
-    url.searchParams.set("maxResults", "2500");
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
 
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      if (!res.ok) {
+        console.error(`Failed to fetch ${calendar.id}: ${res.status}`);
+        return [];
+      }
+
+      const data = (await res.json()) as {
+        items?: Array<{
+          id: string;
+          summary?: string;
+          start?: { date?: string; dateTime?: string };
+          end?: { date?: string; dateTime?: string };
+          recurringEventId?: string;
+        }>;
+      };
+
+      const calendarEvents: CalendarEvent[] = [];
+      for (const item of data.items || []) {
+        const isRecurring = !!item.recurringEventId;
+
+        // All-day events (have start.date)
+        if (item.start?.date) {
+          calendarEvents.push({
+            id: item.id,
+            summary: item.summary || "(No title)",
+            start: item.start.date,
+            end: item.end?.date || item.start.date,
+            calendarId: calendar.id,
+            calendarName: calendar.summary,
+            color: calendar.backgroundColor || "#4285f4",
+            isAllDay: true,
+            isRecurring,
+          });
+        }
+        // Timed events (have start.dateTime) - always fetch for caching
+        else if (item.start?.dateTime) {
+          const startDate = toDateString(item.start.dateTime);
+          const endDate = item.end?.dateTime ? toDateString(item.end.dateTime) : startDate;
+          calendarEvents.push({
+            id: item.id,
+            summary: item.summary || "(No title)",
+            start: startDate,
+            end: endDate === startDate ? addDays(startDate, 1) : endDate,
+            calendarId: calendar.id,
+            calendarName: calendar.summary,
+            color: calendar.backgroundColor || "#4285f4",
+            isAllDay: false,
+            isRecurring,
+          });
+        }
+      }
+      return calendarEvents;
     });
 
-    if (!res.ok) {
-      console.error(`Failed to fetch ${calendar.id}: ${res.status}`);
-      continue;
-    }
-
-    const data = (await res.json()) as {
-      items?: Array<{
-        id: string;
-        summary?: string;
-        start?: { date?: string; dateTime?: string };
-        end?: { date?: string; dateTime?: string };
-        recurringEventId?: string;
-      }>;
-    };
-
-    for (const item of data.items || []) {
-      const isRecurring = !!item.recurringEventId;
-
-      // All-day events (have start.date)
-      if (item.start?.date) {
-        events.push({
-          id: item.id,
-          summary: item.summary || "(No title)",
-          start: item.start.date,
-          end: item.end?.date || item.start.date,
-          calendarId: calendar.id,
-          calendarName: calendar.summary,
-          color: calendar.backgroundColor || "#4285f4",
-          isAllDay: true,
-          isRecurring,
-        });
-      }
-      // Timed events (have start.dateTime)
-      else if (includeTimed && item.start?.dateTime) {
-        const startDate = toDateString(item.start.dateTime);
-        const endDate = item.end?.dateTime ? toDateString(item.end.dateTime) : startDate;
-        events.push({
-          id: item.id,
-          summary: item.summary || "(No title)",
-          start: startDate,
-          end: endDate === startDate ? addDays(startDate, 1) : endDate,
-          calendarId: calendar.id,
-          calendarName: calendar.summary,
-          color: calendar.backgroundColor || "#4285f4",
-          isAllDay: false,
-          isRecurring,
-        });
-      }
-    }
+  const results = await Promise.all(calendarFetches);
+  for (const calendarEvents of results) {
+    events.push(...calendarEvents);
   }
+
+  // Store in cache
+  await cache.put(cacheKey, JSON.stringify(events), { expirationTtl: CACHE_TTL });
 
   return events;
 }
