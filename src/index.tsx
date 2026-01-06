@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { Bindings, Variables, CalendarEvent, CalendarInfo } from "./env";
+import { shortHash, type Bindings, type Variables, type CalendarEvent, type CalendarInfo } from "./env";
 import { createAuth } from "./lib/auth";
 import { authMiddleware } from "./middleware/auth";
 import { getCalendarList, getEvents } from "./lib/google-calendar";
@@ -138,18 +138,28 @@ app.get("/", authMiddleware, async (c) => {
   const showTimed = query.success ? query.data.timed : false;
   const hideRecurring = query.success ? query.data.hideRecurring : false;
 
-  // Parse hidden calendar IDs
-  const hiddenSet = new Set(
-    hide ? hide.split(",").map(decodeURIComponent) : []
+  // Parse hidden calendar hashes from URL
+  const hiddenHashes = new Set(
+    hide ? hide.split(",") : []
   );
 
   let allEvents: CalendarEvent[] = [];
   let calendarInfos: CalendarInfo[] = [];
+  let hiddenIds = new Set<string>();
 
   if (accessToken && user) {
     try {
       const calendars = await getCalendarList(accessToken, c.env.CACHE, user.id);
       allEvents = await getEvents(accessToken, calendars, year, c.env.CACHE, user.id);
+
+      // Build hash-to-ID map and resolve hidden hashes to IDs
+      const hashToId = new Map<string, string>();
+      for (const cal of calendars) {
+        hashToId.set(shortHash(cal.id), cal.id);
+      }
+      hiddenIds = new Set(
+        [...hiddenHashes].map((h) => hashToId.get(h)).filter((id): id is string => !!id)
+      );
 
       // Compute event counts per calendar (before filtering timed)
       const countsByCalendar = new Map<string, number>();
@@ -158,13 +168,14 @@ app.get("/", authMiddleware, async (c) => {
         countsByCalendar.set(event.calendarId, count + 1);
       }
 
-      // Build CalendarInfo array
+      // Build CalendarInfo array with hashes
       calendarInfos = calendars.map((cal) => ({
         id: cal.id,
+        hash: shortHash(cal.id),
         name: cal.summary,
         color: cal.backgroundColor || "#4285f4",
         eventCount: countsByCalendar.get(cal.id) || 0,
-        hidden: hiddenSet.has(cal.id),
+        hidden: hiddenIds.has(cal.id),
       }));
     } catch (error) {
       console.error("Failed to fetch events:", error);
@@ -173,7 +184,7 @@ app.get("/", authMiddleware, async (c) => {
 
   // Filter events: hidden calendars, timed events (if not showing), recurring events (if hiding)
   const visibleEvents = allEvents.filter((e) => {
-    if (hiddenSet.has(e.calendarId)) return false;
+    if (hiddenIds.has(e.calendarId)) return false;
     if (!showTimed && !e.isAllDay) return false;
     if (hideRecurring && e.isRecurring) return false;
     return true;

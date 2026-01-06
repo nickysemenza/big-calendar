@@ -32,22 +32,22 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
   const recurringParam = hideRecurring ? "&hideRecurring=true" : "";
   const baseParams = `year=${year}&view=${view}${timedParam}${recurringParam}`;
 
-  // Build URL for toggling a calendar's visibility
+  // Build URL for toggling a calendar's visibility (using short hashes)
   function buildToggleUrl(calId: string): string {
     const newHidden = calendars
       .filter((c) => (c.id === calId ? !c.hidden : c.hidden))
-      .map((c) => c.id);
+      .map((c) => c.hash);
 
     if (newHidden.length === 0) {
       return `/?${baseParams}`;
     }
-    return `/?${baseParams}&hide=${newHidden.map(encodeURIComponent).join(",")}`;
+    return `/?${baseParams}&hide=${newHidden.join(",")}`;
   }
 
-  // Build current hide param for preserving in other links
+  // Build current hide param for preserving in other links (using short hashes)
   const currentHideParam = calendars
     .filter((c) => c.hidden)
-    .map((c) => encodeURIComponent(c.id))
+    .map((c) => c.hash)
     .join(",");
   const hideQuery = currentHideParam ? `&hide=${currentHideParam}` : "";
 
