@@ -53,6 +53,12 @@ export function toDateString(dateOrDateTime: string): string {
   return dateOrDateTime.split("T")[0];
 }
 
+/** Extract HH:MM time from ISO datetime string */
+export function toTimeString(dateTime: string): string {
+  const date = new Date(dateTime);
+  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
 /** Add days to a YYYY-MM-DD string and return new YYYY-MM-DD */
 export function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr + "T00:00:00");

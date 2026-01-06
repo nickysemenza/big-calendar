@@ -1,4 +1,5 @@
 import type { CalendarEvent } from "../env";
+import { shortHash } from "../env";
 import {
   getAllDaysOfYear,
   formatDate,
@@ -64,6 +65,10 @@ interface Props {
   year: number;
   events: CalendarEvent[];
   view: "continuous" | "month";
+  hideCalendars: string;
+  hideEvents: string;
+  showTimed: boolean;
+  hideRecurring: boolean;
 }
 
 const DAY_ABBREVS = ["S", "M", "T", "W", "T", "F", "S"];
@@ -90,6 +95,8 @@ interface ConsolidatedEvent {
   summary: string;
   start: string;
   end: string;
+  startTime?: string;
+  endTime?: string;
   colors: string[];
   calendarNames: string[];
   isAllDay: boolean;
@@ -128,6 +135,8 @@ function consolidateEvents(events: CalendarEvent[]): ConsolidatedEvent[] {
       summary: group[0].summary,
       start: group[0].start,
       end: group[0].end,
+      startTime: group[0].startTime,
+      endTime: group[0].endTime,
       colors: [...colorSet],
       calendarNames: [...calendarSet],
       isAllDay,
@@ -197,11 +206,31 @@ interface EventSegment {
   colEnd: number; // exclusive
 }
 
-export function YearCalendar({ year, events, view }: Props) {
-  if (view === "month") {
-    return <MonthRowGrid year={year} events={events} />;
+export function YearCalendar({ year, events, view, hideCalendars, hideEvents, showTimed, hideRecurring }: Props) {
+  // Build base URL params for hide links
+  const baseParams = new URLSearchParams();
+  baseParams.set("year", String(year));
+  baseParams.set("view", view);
+  if (hideCalendars) baseParams.set("hide", hideCalendars);
+  if (showTimed) baseParams.set("timed", "true");
+  if (hideRecurring) baseParams.set("hideRecurring", "true");
+
+  // Helper to build URL that adds an event hash to hidden list
+  function buildHideEventUrl(eventName: string): string {
+    const eventHash = shortHash(eventName.toLowerCase());
+    const currentHashes = hideEvents ? hideEvents.split(",") : [];
+    if (!currentHashes.includes(eventHash)) {
+      currentHashes.push(eventHash);
+    }
+    const params = new URLSearchParams(baseParams);
+    params.set("hideEvents", currentHashes.join(","));
+    return `/?${params.toString()}`;
   }
-  return <ContinuousGrid year={year} events={events} />;
+
+  if (view === "month") {
+    return <MonthRowGrid year={year} events={events} buildHideEventUrl={buildHideEventUrl} />;
+  }
+  return <ContinuousGrid year={year} events={events} buildHideEventUrl={buildHideEventUrl} />;
 }
 
 // ============ CONTINUOUS GRID (25 cols × ~15 rows) ============
@@ -209,9 +238,11 @@ export function YearCalendar({ year, events, view }: Props) {
 function ContinuousGrid({
   year,
   events,
+  buildHideEventUrl,
 }: {
   year: number;
   events: CalendarEvent[];
+  buildHideEventUrl: (eventName: string) => string;
 }) {
   const COLS = 25;
   const allDays = getAllDaysOfYear(year);
@@ -324,7 +355,7 @@ function ContinuousGrid({
                     {dayEvents.map((event) => {
                       const dateRange = formatDateRange(event.start, event.end);
                       return (
-                        <div key={event.id} class="flex items-start gap-1.5 py-0.5 text-xs">
+                        <div key={event.id} class="flex items-start gap-1.5 py-0.5 text-xs group/event">
                           <span
                             class="w-2 h-2 rounded-full flex-shrink-0 mt-0.5"
                             style={`background: ${getStripedBackground(event.colors)};`}
@@ -333,7 +364,19 @@ function ContinuousGrid({
                             <div class="flex items-center gap-1">
                               <span class="text-gray-800 leading-tight">{event.summary}</span>
                               {event.isRecurring && <span class="text-gray-400" title="Recurring">↻</span>}
+                              <a
+                                href={buildHideEventUrl(event.summary)}
+                                class="text-gray-300 hover:text-red-500 opacity-0 group-hover/event:opacity-100 transition-opacity ml-auto"
+                                title="Hide this event"
+                              >
+                                ×
+                              </a>
                             </div>
+                            {event.startTime && (
+                              <div class="text-[10px] text-gray-400">
+                                {event.startTime}{event.endTime && ` – ${event.endTime}`}
+                              </div>
+                            )}
                             {dateRange && (
                               <div class="text-[10px] text-gray-400">{dateRange}</div>
                             )}
@@ -360,9 +403,11 @@ function ContinuousGrid({
 function MonthRowGrid({
   year,
   events,
+  buildHideEventUrl,
 }: {
   year: number;
   events: CalendarEvent[];
+  buildHideEventUrl: (eventName: string) => string;
 }) {
   const today = formatDate(new Date());
   const COLS = 31;
@@ -486,7 +531,7 @@ function MonthRowGrid({
                           {dayEvents.map((event) => {
                             const dateRange = formatDateRange(event.start, event.end);
                             return (
-                              <div key={event.id} class="flex items-start gap-1.5 py-0.5 text-xs">
+                              <div key={event.id} class="flex items-start gap-1.5 py-0.5 text-xs group/event">
                                 <span
                                   class="w-2 h-2 rounded-full flex-shrink-0 mt-0.5"
                                   style={`background: ${getStripedBackground(event.colors)};`}
@@ -495,7 +540,19 @@ function MonthRowGrid({
                                   <div class="flex items-center gap-1">
                                     <span class="text-gray-800 leading-tight">{event.summary}</span>
                                     {event.isRecurring && <span class="text-gray-400" title="Recurring">↻</span>}
+                                    <a
+                                      href={buildHideEventUrl(event.summary)}
+                                      class="text-gray-300 hover:text-red-500 opacity-0 group-hover/event:opacity-100 transition-opacity ml-auto"
+                                      title="Hide this event"
+                                    >
+                                      ×
+                                    </a>
                                   </div>
+                                  {event.startTime && (
+                                    <div class="text-[10px] text-gray-400">
+                                      {event.startTime}{event.endTime && ` – ${event.endTime}`}
+                                    </div>
+                                  )}
                                   {dateRange && (
                                     <div class="text-[10px] text-gray-400">{dateRange}</div>
                                   )}

@@ -7,9 +7,10 @@ interface Props {
   userEmail: string;
   showTimed: boolean;
   hideRecurring: boolean;
+  hiddenEventCount: number;
 }
 
-export function Header({ year, view, calendars, userEmail, showTimed, hideRecurring }: Props) {
+export function Header({ year, view, calendars, userEmail, showTimed, hideRecurring, hiddenEventCount }: Props) {
   const now = new Date();
   const currentYear = now.getFullYear();
   const isMonthView = view === "month";
@@ -166,8 +167,23 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
             ))}
           </div>
         )}
+
+        {/* Hidden events indicator */}
+        {hiddenEventCount > 0 && (
+          <a
+            href={`/?${baseParams}`}
+            class="flex items-center gap-1 ml-2 pl-2 border-l border-gray-200 text-xs text-gray-500 hover:text-gray-700"
+            title="Click to show all hidden events"
+          >
+            <span class="text-red-400">×</span>
+            <span>{hiddenEventCount} hidden</span>
+          </a>
+        )}
       </div>
       <div class="flex items-center gap-4 text-sm text-gray-600">
+        <a href="/refresh" class="text-gray-500 hover:text-gray-700" title="Refresh calendar data">
+          ↻
+        </a>
         <span>{userEmail}</span>
         <a href="/signout" class="text-blue-600 hover:underline">
           Sign out

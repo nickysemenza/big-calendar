@@ -20,6 +20,8 @@ export interface CalendarEvent {
   summary: string;
   start: string; // YYYY-MM-DD
   end: string; // YYYY-MM-DD (exclusive)
+  startTime?: string; // HH:MM for timed events
+  endTime?: string; // HH:MM for timed events
   calendarId: string;
   calendarName: string;
   color: string;

@@ -97,6 +97,24 @@ app.get("/signin", async (c) => {
   return response;
 });
 
+// Refresh cache helper route
+app.get("/refresh", authMiddleware, async (c) => {
+  const user = c.get("user");
+  if (user) {
+    // Delete all cached data for this user
+    await Promise.all([
+      c.env.CACHE.delete(`calendars:${user.id}`),
+      // Delete events for multiple years (current and adjacent)
+      ...[-1, 0, 1].map((offset) =>
+        c.env.CACHE.delete(`events:${user.id}:${new Date().getFullYear() + offset}`)
+      ),
+    ]);
+  }
+  // Redirect back to the referring page or home
+  const referer = c.req.header("Referer");
+  return c.redirect(referer || "/");
+});
+
 // Sign out helper route
 app.get("/signout", async (c) => {
   const auth = createAuth(c.env);
@@ -126,6 +144,7 @@ app.get("/", authMiddleware, async (c) => {
     year: c.req.query("year"),
     view: c.req.query("view"),
     hide: c.req.query("hide"),
+    hideEvents: c.req.query("hideEvents"),
     timed: c.req.query("timed"),
     hideRecurring: c.req.query("hideRecurring"),
   });
@@ -135,12 +154,18 @@ app.get("/", authMiddleware, async (c) => {
       : new Date().getFullYear();
   const view = query.success ? query.data.view : "continuous";
   const hide = query.success ? query.data.hide : undefined;
+  const hideEvents = query.success ? query.data.hideEvents : undefined;
   const showTimed = query.success ? query.data.timed : false;
   const hideRecurring = query.success ? query.data.hideRecurring : false;
 
   // Parse hidden calendar hashes from URL
   const hiddenHashes = new Set(
     hide ? hide.split(",") : []
+  );
+
+  // Parse hidden event hashes from URL
+  const hiddenEventHashes = new Set(
+    hideEvents ? hideEvents.split(",") : []
   );
 
   let allEvents: CalendarEvent[] = [];
@@ -182,13 +207,31 @@ app.get("/", authMiddleware, async (c) => {
     }
   }
 
-  // Filter events: hidden calendars, timed events (if not showing), recurring events (if hiding)
+  // Build set of birthday events from the Birthdays calendar for deduplication
+  const BIRTHDAYS_CALENDAR_ID = "addressbook#contacts@group.v.calendar.google.com";
+  const birthdayKeys = new Set(
+    allEvents
+      .filter((e) => e.calendarId === BIRTHDAYS_CALENDAR_ID)
+      .map((e) => `${e.summary.toLowerCase()}|${e.start}`)
+  );
+
+  // Filter events: hidden calendars, hidden events, timed events (if not showing), recurring events (if hiding)
+  // Also deduplicate birthdays - if same event exists in Birthdays calendar, hide from other calendars
   const visibleEvents = allEvents.filter((e) => {
     if (hiddenIds.has(e.calendarId)) return false;
+    // Check if event name hash is in hidden set
+    if (hiddenEventHashes.has(shortHash(e.summary.toLowerCase()))) return false;
     if (!showTimed && !e.isAllDay) return false;
     if (hideRecurring && e.isRecurring) return false;
+    // Dedupe: if this looks like a birthday from a non-Birthday calendar, and it exists in Birthdays, skip it
+    if (e.calendarId !== BIRTHDAYS_CALENDAR_ID && birthdayKeys.has(`${e.summary.toLowerCase()}|${e.start}`)) {
+      return false;
+    }
     return true;
   });
+
+  // Build current hideEvents param for passing to components
+  const currentHideEventsParam = hideEvents || "";
 
   return c.render(
     <div class="flex flex-col h-screen">
@@ -199,8 +242,17 @@ app.get("/", authMiddleware, async (c) => {
         userEmail={user?.email || ""}
         showTimed={showTimed}
         hideRecurring={hideRecurring}
+        hiddenEventCount={hiddenEventHashes.size}
       />
-      <YearCalendar year={year} events={visibleEvents} view={view} />
+      <YearCalendar
+        year={year}
+        events={visibleEvents}
+        view={view}
+        hideCalendars={hide || ""}
+        hideEvents={currentHideEventsParam}
+        showTimed={showTimed}
+        hideRecurring={hideRecurring}
+      />
     </div>
   );
 });

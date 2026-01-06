@@ -1,6 +1,6 @@
 import type { CalendarEvent, GoogleCalendar } from "../env";
 import { googleCalendarListSchema } from "./validators";
-import { toDateString, addDays } from "./dates";
+import { toDateString, toTimeString, addDays } from "./dates";
 
 // Special Google system calendars that don't appear in calendarList
 const SPECIAL_CALENDARS = [
@@ -201,6 +201,8 @@ export async function getEvents(
             summary: item.summary || "(No title)",
             start: startDate,
             end: endDate === startDate ? addDays(startDate, 1) : endDate,
+            startTime: toTimeString(item.start.dateTime),
+            endTime: item.end?.dateTime ? toTimeString(item.end.dateTime) : undefined,
             calendarId: calendar.id,
             calendarName: calendar.summary,
             color: calendar.backgroundColor || "#4285f4",
