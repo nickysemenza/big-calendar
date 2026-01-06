@@ -64,7 +64,7 @@ function consolidateCalendarEvents(events: CalendarEvent[]): ConsolidatedCalenda
 interface Props {
   year: number;
   events: CalendarEvent[];
-  view: "continuous" | "month";
+  view: "continuous" | "month" | "weekends";
   hideCalendars: string;
   hideEvents: string;
   showTimed: boolean;
@@ -230,6 +230,9 @@ export function YearCalendar({ year, events, view, hideCalendars, hideEvents, sh
   if (view === "month") {
     return <MonthRowGrid year={year} events={events} buildHideEventUrl={buildHideEventUrl} />;
   }
+  if (view === "weekends") {
+    return <WeekendsAlignedGrid year={year} events={events} buildHideEventUrl={buildHideEventUrl} />;
+  }
   return <ContinuousGrid year={year} events={events} buildHideEventUrl={buildHideEventUrl} />;
 }
 
@@ -319,6 +322,227 @@ function ContinuousGrid({
               </div>
 
               {cellSegments.map((seg, segIdx) => {
+                const span = seg.colEnd - seg.colStart;
+                const slot = segmentSlots.get(seg) || 0;
+
+                const isMultiDay = span > 1;
+                return (
+                  <div
+                    key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
+                    class={`text-[8px] rounded-sm px-0.5 text-white leading-tight pointer-events-auto ${
+                      isMultiDay ? "truncate" : "overflow-hidden break-words"
+                    }`}
+                    style={`
+                      background: ${getStripedBackground(seg.event.colors)};
+                      position: absolute;
+                      left: 2px;
+                      top: ${14 + slot * 11}px;
+                      width: calc(${span * 100}% - 4px);
+                      z-index: ${20 + slot};
+                      ${!isMultiDay ? "display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;" : ""}
+                      ${!seg.event.isAllDay ? "opacity: 0.7;" : ""}
+                    `}
+                  >
+                    {seg.event.isRecurring && <span class="absolute top-0 right-0.5 opacity-50 text-[8px]">↻</span>}{seg.event.summary}
+                  </div>
+                );
+              })}
+
+              {/* Hover popup */}
+              {dayEvents.length > 0 && (
+                <div class="hidden group-hover:block absolute z-[100] left-full top-0 ml-1 bg-white rounded-lg shadow-lg border border-gray-200 p-2 min-w-[180px] max-h-[250px] overflow-auto">
+                  <div class="font-semibold text-xs mb-1 pb-1 border-b border-gray-100 text-gray-700">
+                    {monthAbbrev} {dayNum} &middot; {dayEvents.length} event{dayEvents.length !== 1 ? "s" : ""}
+                  </div>
+                  <div class="space-y-0.5">
+                    {dayEvents.map((event) => {
+                      const dateRange = formatDateRange(event.start, event.end);
+                      return (
+                        <div key={event.id} class="flex items-start gap-1.5 py-0.5 text-xs group/event">
+                          <span
+                            class="w-2 h-2 rounded-full flex-shrink-0 mt-0.5"
+                            style={`background: ${getStripedBackground(event.colors)};`}
+                          />
+                          <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-1">
+                              <span class="text-gray-800 leading-tight">{event.summary}</span>
+                              {event.isRecurring && <span class="text-gray-400" title="Recurring">↻</span>}
+                              <a
+                                href={buildHideEventUrl(event.summary)}
+                                class="text-gray-300 hover:text-red-500 opacity-0 group-hover/event:opacity-100 transition-opacity ml-auto"
+                                title="Hide this event"
+                              >
+                                ×
+                              </a>
+                            </div>
+                            {event.startTime && (
+                              <div class="text-[10px] text-gray-400">
+                                {event.startTime}{event.endTime && ` – ${event.endTime}`}
+                              </div>
+                            )}
+                            {dateRange && (
+                              <div class="text-[10px] text-gray-400">{dateRange}</div>
+                            )}
+                            {event.colors.length > 1 && (
+                              <div class="text-[10px] text-gray-400">{event.calendarNames.join(", ")}</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============ WEEKENDS ALIGNED GRID (28 cols = 4 weeks × 7 days) ============
+
+function WeekendsAlignedGrid({
+  year,
+  events,
+  buildHideEventUrl,
+}: {
+  year: number;
+  events: CalendarEvent[];
+  buildHideEventUrl: (eventName: string) => string;
+}) {
+  const COLS = 28; // 4 weeks × 7 days
+  const today = formatDate(new Date());
+
+  // Consolidate duplicate events (same name + same dates)
+  const consolidatedEvents = consolidateCalendarEvents(events);
+
+  // Get all days of year and find the first Sunday on or before Jan 1
+  const allDays = getAllDaysOfYear(year);
+  const jan1 = new Date(year, 0, 1);
+  const jan1DayOfWeek = jan1.getDay(); // 0 = Sunday
+
+  // Build array of cells including padding days from prev/next year
+  interface CellData {
+    date: Date;
+    dateStr: string;
+    isInYear: boolean;
+  }
+
+  const cells: CellData[] = [];
+
+  // Add padding days before Jan 1 (to align to Sunday)
+  if (jan1DayOfWeek > 0) {
+    for (let i = jan1DayOfWeek - 1; i >= 0; i--) {
+      const d = new Date(year - 1, 11, 31 - i);
+      cells.push({ date: d, dateStr: formatDate(d), isInYear: false });
+    }
+  }
+
+  // Add all days of the year
+  for (const day of allDays) {
+    cells.push({ date: day, dateStr: formatDate(day), isInYear: true });
+  }
+
+  // Add padding days after Dec 31 to complete the last row
+  const remainder = cells.length % COLS;
+  if (remainder > 0) {
+    const padding = COLS - remainder;
+    for (let i = 1; i <= padding; i++) {
+      const d = new Date(year + 1, 0, i);
+      cells.push({ date: d, dateStr: formatDate(d), isInYear: false });
+    }
+  }
+
+  // Create a map of date string -> cell index for quick lookup
+  const dateToIndex = new Map<string, number>();
+  cells.forEach((cell, i) => {
+    dateToIndex.set(cell.dateStr, i);
+  });
+
+  const rowCount = Math.ceil(cells.length / COLS);
+  const { segmentsByRow, segmentSlots, maxSlotPerRow } = computeEventSegments(
+    consolidatedEvents,
+    dateToIndex,
+    cells.length,
+    COLS
+  );
+
+  return (
+    <div class="flex-1 bg-white p-2 overflow-auto">
+      {/* Day of week header */}
+      <div
+        class="grid gap-px bg-gray-200 mb-px"
+        style={`grid-template-columns: repeat(${COLS}, 1fr);`}
+      >
+        {Array.from({ length: 4 }).flatMap((_, weekIdx) =>
+          DAY_ABBREVS.map((abbrev, dayIdx) => (
+            <div
+              key={`header-${weekIdx}-${dayIdx}`}
+              class={`text-[9px] text-center py-0.5 font-medium ${
+                dayIdx === 0 || dayIdx === 6 ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-500"
+              }`}
+            >
+              {abbrev}
+            </div>
+          ))
+        )}
+      </div>
+      <div
+        class="grid gap-px bg-gray-200 h-[calc(100%-20px)]"
+        style={`grid-template-columns: repeat(${COLS}, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, rowCount)};`}
+      >
+        {cells.map((cell, idx) => {
+          const { date: day, dateStr, isInYear } = cell;
+          const isToday = dateStr === today;
+          const dayNum = day.getDate();
+          const isFirstOfMonth = dayNum === 1;
+          const dayOfWeek = day.getDay();
+          const monthAbbrev = getMonthAbbrev(day);
+          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+          const isOddMonth = day.getMonth() % 2 === 1;
+
+          const row = Math.floor(idx / COLS);
+          const col = idx % COLS;
+          const rowSegments = segmentsByRow.get(row) || [];
+          const cellSegments = rowSegments.filter((s) => s.colStart === col);
+          const dayEvents = isInYear ? consolidateEvents(getEventsForDate(events, dateStr)) : [];
+
+          // Background: outside year is gray-100, weekends get cream, otherwise alternate
+          const bgClass = !isInYear
+            ? "bg-gray-100"
+            : isWeekend
+              ? "bg-amber-50"
+              : isOddMonth
+                ? "bg-gray-50"
+                : "bg-white";
+
+          return (
+            <div
+              key={`${dateStr}-${idx}`}
+              class={`group relative p-0.5 min-h-0 ${bgClass} ${isToday ? "ring-2 ring-orange-400 ring-inset z-10" : ""}`}
+            >
+              <div class="flex items-baseline gap-0.5 text-[9px] leading-none">
+                {isFirstOfMonth && isInYear && (
+                  <span class="font-bold text-orange-600">{monthAbbrev}</span>
+                )}
+                <span
+                  class={`font-medium ${
+                    !isInYear
+                      ? "text-gray-300"
+                      : isToday
+                        ? "text-orange-500 font-bold"
+                        : isFirstOfMonth
+                          ? "text-orange-600 font-bold"
+                          : "text-gray-600"
+                  }`}
+                >
+                  {dayNum}
+                </span>
+              </div>
+
+              {isInYear && cellSegments.map((seg, segIdx) => {
                 const span = seg.colEnd - seg.colStart;
                 const slot = segmentSlots.get(seg) || 0;
 

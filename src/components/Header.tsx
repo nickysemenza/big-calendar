@@ -2,7 +2,7 @@ import type { CalendarInfo } from "../env";
 
 interface Props {
   year: number;
-  view: "continuous" | "month";
+  view: "continuous" | "month" | "weekends";
   calendars: CalendarInfo[];
   userEmail: string;
   showTimed: boolean;
@@ -13,7 +13,6 @@ interface Props {
 export function Header({ year, view, calendars, userEmail, showTimed, hideRecurring, hiddenEventCount }: Props) {
   const now = new Date();
   const currentYear = now.getFullYear();
-  const isMonthView = view === "month";
 
   // Calculate year progress percentage
   const startOfYear = new Date(year, 0, 1);
@@ -28,41 +27,51 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
     yearProgress = 100;
   }
 
-  // Build base URL params (without hide)
-  const timedParam = showTimed ? "&timed=true" : "";
-  const recurringParam = hideRecurring ? "&hideRecurring=true" : "";
-  const baseParams = `year=${year}&view=${view}${timedParam}${recurringParam}`;
-
-  // Build URL for toggling a calendar's visibility (using short hashes)
-  function buildToggleUrl(calId: string): string {
-    const newHidden = calendars
-      .filter((c) => (c.id === calId ? !c.hidden : c.hidden))
-      .map((c) => c.hash);
-
-    if (newHidden.length === 0) {
-      return `/?${baseParams}`;
-    }
-    return `/?${baseParams}&hide=${newHidden.join(",")}`;
-  }
-
-  // Build current hide param for preserving in other links (using short hashes)
+  // Current hidden calendar hashes
   const currentHideParam = calendars
     .filter((c) => c.hidden)
     .map((c) => c.hash)
     .join(",");
-  const hideQuery = currentHideParam ? `&hide=${currentHideParam}` : "";
 
-  // Build URL preserving year and hide
-  const viewToggleUrl = `/?year=${year}&view=${isMonthView ? "continuous" : "month"}${timedParam}${recurringParam}${hideQuery}`;
-  const timedToggleUrl = `/?year=${year}&view=${view}${showTimed ? "" : "&timed=true"}${recurringParam}${hideQuery}`;
-  const recurringToggleUrl = `/?year=${year}&view=${view}${timedParam}${hideRecurring ? "" : "&hideRecurring=true"}${hideQuery}`;
+  // Build URL with optional overrides
+  function buildUrl(overrides: {
+    year?: number;
+    view?: string;
+    timed?: boolean;
+    hideRecurring?: boolean;
+    hide?: string;
+  } = {}): string {
+    const params = new URLSearchParams();
+    params.set("year", String(overrides.year ?? year));
+    params.set("view", overrides.view ?? view);
+
+    const timedValue = overrides.timed ?? showTimed;
+    if (timedValue) params.set("timed", "true");
+
+    const recurringValue = overrides.hideRecurring ?? hideRecurring;
+    if (recurringValue) params.set("hideRecurring", "true");
+
+    const hideValue = overrides.hide ?? currentHideParam;
+    if (hideValue) params.set("hide", hideValue);
+
+    return `/?${params.toString()}`;
+  }
+
+  // Build URL for toggling a calendar's visibility
+  function buildCalendarToggleUrl(calId: string): string {
+    const newHidden = calendars
+      .filter((c) => (c.id === calId ? !c.hidden : c.hidden))
+      .map((c) => c.hash)
+      .join(",");
+    return buildUrl({ hide: newHidden });
+  }
 
   return (
     <header class="flex items-center justify-between px-4 py-2 border-b shrink-0 bg-white">
       <div class="flex items-center gap-4">
         <div class="flex items-center gap-2">
           <a
-            href={`/?year=${year - 1}&view=${view}${hideQuery}`}
+            href={buildUrl({ year: year - 1 })}
             class="p-2 hover:bg-gray-100 rounded text-gray-600"
           >
             &larr;
@@ -74,7 +83,7 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
             <span class="text-sm text-gray-500 font-normal">{yearProgress}%</span>
           )}
           <a
-            href={`/?year=${year + 1}&view=${view}${hideQuery}`}
+            href={buildUrl({ year: year + 1 })}
             class="p-2 hover:bg-gray-100 rounded text-gray-600"
           >
             &rarr;
@@ -82,29 +91,37 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
         </div>
         {year !== currentYear && (
           <a
-            href={`/?view=${view}${hideQuery}`}
+            href={buildUrl({ year: currentYear })}
             class="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded"
           >
             Today
           </a>
         )}
+        <div class="flex items-center gap-2 px-3 py-1 text-sm">
+          <span class="text-gray-500">View:</span>
+          <div class="flex gap-1">
+            <a
+              href={buildUrl({ view: "continuous" })}
+              class={`px-2 py-0.5 rounded text-xs ${view === "continuous" ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+            >
+              Continuous
+            </a>
+            <a
+              href={buildUrl({ view: "month" })}
+              class={`px-2 py-0.5 rounded text-xs ${view === "month" ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+            >
+              Month rows
+            </a>
+            <a
+              href={buildUrl({ view: "weekends" })}
+              class={`px-2 py-0.5 rounded text-xs ${view === "weekends" ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+            >
+              Week rows
+            </a>
+          </div>
+        </div>
         <a
-          href={viewToggleUrl}
-          class="flex items-center gap-2 px-3 py-1 text-sm hover:bg-gray-100 rounded cursor-pointer"
-        >
-          <span
-            class={`w-4 h-4 border rounded flex items-center justify-center ${
-              isMonthView
-                ? "bg-blue-600 border-blue-600 text-white"
-                : "border-gray-400"
-            }`}
-          >
-            {isMonthView && "✓"}
-          </span>
-          <span class="text-gray-700">Month rows</span>
-        </a>
-        <a
-          href={timedToggleUrl}
+          href={buildUrl({ timed: !showTimed })}
           class="flex items-center gap-2 px-3 py-1 text-sm hover:bg-gray-100 rounded cursor-pointer"
         >
           <span
@@ -119,7 +136,7 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
           <span class="text-gray-700">Timed events</span>
         </a>
         <a
-          href={recurringToggleUrl}
+          href={buildUrl({ hideRecurring: !hideRecurring })}
           class="flex items-center gap-2 px-3 py-1 text-sm hover:bg-gray-100 rounded cursor-pointer"
         >
           <span
@@ -143,7 +160,7 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
             {calendars.filter((c) => c.eventCount > 0).map((cal) => (
               <a
                 key={cal.id}
-                href={buildToggleUrl(cal.id)}
+                href={buildCalendarToggleUrl(cal.id)}
                 class="flex items-center gap-1 px-1 py-0.5 text-xs hover:bg-gray-100 rounded cursor-pointer"
                 title={cal.name}
               >
@@ -170,14 +187,10 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
 
         {/* Hidden events indicator */}
         {hiddenEventCount > 0 && (
-          <a
-            href={`/?${baseParams}`}
-            class="flex items-center gap-1 ml-2 pl-2 border-l border-gray-200 text-xs text-gray-500 hover:text-gray-700"
-            title="Click to show all hidden events"
-          >
+          <span class="flex items-center gap-1 ml-2 pl-2 border-l border-gray-200 text-xs text-gray-500">
             <span class="text-red-400">×</span>
             <span>{hiddenEventCount} hidden</span>
-          </a>
+          </span>
         )}
       </div>
       <div class="flex items-center gap-4 text-sm text-gray-600">
