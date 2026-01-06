@@ -6,13 +6,26 @@
     "build": "vite build",
     "preview": "$npm_execpath run build && vite preview",
     "deploy": "$npm_execpath run build && wrangler deploy",
-    "cf-typegen": "wrangler types --env-interface CloudflareBindings"
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "wrangler d1 migrations apply big-calendar-db --remote",
+    "db:migrate:local": "wrangler d1 migrations apply big-calendar-db --local"
   },
   "dependencies": {
-    "hono": "^4.11.3"
+    "@hono/zod-validator": "^0.7.6",
+    "better-auth": "^1.4.10",
+    "better-auth-cloudflare": "^0.2.9",
+    "drizzle-orm": "^0.45.1",
+    "hono": "^4.11.3",
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.2.3",
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/node": "^25.0.3",
+    "dotenv": "^17.2.3",
+    "drizzle-kit": "^0.31.8",
+    "tailwindcss": "^4.1.18",
     "vite": "^6.3.5",
     "vite-ssr-components": "^0.5.2",
     "wrangler": "^4.17.0"
