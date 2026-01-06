@@ -8,6 +8,21 @@ import {
   getDaysInMonth,
 } from "../lib/dates";
 
+// Responsive sizes for large monitors (≥1536px / 2xl breakpoint)
+// Uses CSS media queries for styling via Tailwind 2xl: prefix
+// Returns JS values for inline styles that can't use CSS
+function useResponsiveSizes() {
+  // Check if we're on a large screen (SSR-safe - returns false during SSR)
+  const isLarge = typeof window !== "undefined" && window.matchMedia("(min-width: 1536px)").matches;
+
+  return {
+    minRowHeight: isLarge ? 44 : 32,
+    headerHeight: isLarge ? 18 : 14,
+    eventHeight: isLarge ? 15 : 11,
+    isLarge,
+  };
+}
+
 // Consolidated event - same name + same start/end = one event with multiple colors
 interface ConsolidatedCalendarEvent {
   id: string;
@@ -78,10 +93,10 @@ const MONTH_ABBREVS = [
   "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
 ];
 
-// Row height constants
-const MIN_ROW_HEIGHT = 32;
-const HEADER_HEIGHT = 14;
-const EVENT_HEIGHT = 11;
+// Row height defaults (overridden by useResponsiveSizes on large screens)
+const DEFAULT_MIN_ROW_HEIGHT = 32;
+const DEFAULT_HEADER_HEIGHT = 14;
+const DEFAULT_EVENT_HEIGHT = 11;
 
 // Helper to get events for a specific date
 function getEventsForDate(events: CalendarEvent[], dateStr: string): CalendarEvent[] {
@@ -183,16 +198,23 @@ function getStripedBackground(colors: string[]): string {
   return `repeating-linear-gradient(135deg, ${stops.join(", ")})`;
 }
 
+interface SizeConfig {
+  minRowHeight: number;
+  headerHeight: number;
+  eventHeight: number;
+}
+
 function computeRowHeights(
   maxSlotPerRow: Map<number, number>,
-  rowCount: number
+  rowCount: number,
+  sizes: SizeConfig = { minRowHeight: DEFAULT_MIN_ROW_HEIGHT, headerHeight: DEFAULT_HEADER_HEIGHT, eventHeight: DEFAULT_EVENT_HEIGHT }
 ): string {
   const heights: string[] = [];
   for (let row = 0; row < rowCount; row++) {
     const maxSlot = maxSlotPerRow.get(row) ?? -1;
     const minHeight = Math.max(
-      MIN_ROW_HEIGHT,
-      HEADER_HEIGHT + (maxSlot + 1) * EVENT_HEIGHT + 4
+      sizes.minRowHeight,
+      sizes.headerHeight + (maxSlot + 1) * sizes.eventHeight + 4
     );
     // Use minmax so rows fill available space but respect minimum for events
     heights.push(`minmax(${minHeight}px, 1fr)`);
@@ -251,6 +273,7 @@ function ContinuousGrid({
   const COLS = 25;
   const allDays = getAllDaysOfYear(year);
   const today = formatDate(new Date());
+  const sizes = useResponsiveSizes();
 
   // Consolidate duplicate events (same name + same dates)
   const consolidatedEvents = consolidateCalendarEvents(events);
@@ -271,10 +294,10 @@ function ContinuousGrid({
   );
 
   return (
-    <div class="flex-1 bg-white p-2 overflow-auto">
+    <div class="flex-1 bg-white p-2 2xl:p-3 overflow-auto">
       <div
-        class="grid gap-px bg-gray-200 h-full"
-        style={`grid-template-columns: repeat(${COLS}, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, rowCount)};`}
+        class="grid gap-px 2xl:gap-0.5 bg-gray-200 h-full"
+        style={`grid-template-columns: repeat(${COLS}, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, rowCount, sizes)};`}
       >
         {allDays.map((day, idx) => {
           const dateStr = formatDate(day);
@@ -302,9 +325,9 @@ function ContinuousGrid({
           return (
             <div
               key={dateStr}
-              class={`group relative p-0.5 min-h-0 ${bgClass} ${isToday ? "ring-2 ring-orange-400 ring-inset z-10" : ""}`}
+              class={`group relative p-0.5 2xl:p-1 min-h-0 ${bgClass} ${isToday ? "ring-2 ring-orange-400 ring-inset z-10" : ""}`}
             >
-              <div class="flex items-baseline gap-0.5 text-[9px] leading-none">
+              <div class="flex items-baseline gap-0.5 2xl:gap-1 text-[9px] 2xl:text-[12px] leading-none">
                 {isFirstOfMonth && (
                   <span class="font-bold text-orange-600">{monthAbbrev}</span>
                 )}
@@ -330,38 +353,38 @@ function ContinuousGrid({
                 return (
                   <div
                     key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
-                    class={`text-[8px] rounded-sm px-0.5 text-white leading-tight pointer-events-auto ${
+                    class={`text-[8px] 2xl:text-[11px] rounded-sm px-0.5 2xl:px-1 text-white leading-tight pointer-events-auto ${
                       isMultiDay ? "truncate" : "overflow-hidden break-words"
                     }`}
                     style={`
                       background: ${getStripedBackground(seg.event.colors)};
                       position: absolute;
                       left: 2px;
-                      top: ${14 + slot * 11}px;
+                      top: ${sizes.headerHeight + slot * sizes.eventHeight}px;
                       width: calc(${span * 100}% - 4px);
                       z-index: ${20 + slot};
                       ${!isMultiDay ? "display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;" : ""}
                       ${!seg.event.isAllDay ? "opacity: 0.7;" : ""}
                     `}
                   >
-                    {seg.event.isRecurring && <span class="absolute top-0 right-0.5 opacity-50 text-[8px]">↻</span>}{seg.event.summary}
+                    {seg.event.isRecurring && <span class="absolute top-0 right-0.5 opacity-50 text-[8px] 2xl:text-[10px]">↻</span>}{seg.event.summary}
                   </div>
                 );
               })}
 
               {/* Hover popup */}
               {dayEvents.length > 0 && (
-                <div class="hidden group-hover:block absolute z-[100] left-full top-0 ml-1 bg-white rounded-lg shadow-lg border border-gray-200 p-2 min-w-[180px] max-h-[250px] overflow-auto">
-                  <div class="font-semibold text-xs mb-1 pb-1 border-b border-gray-100 text-gray-700">
+                <div class="hidden group-hover:block absolute z-[100] left-full top-0 ml-1 bg-white rounded-lg shadow-lg border border-gray-200 p-2 2xl:p-3 min-w-[180px] 2xl:min-w-[220px] max-h-[250px] 2xl:max-h-[300px] overflow-auto">
+                  <div class="font-semibold text-xs 2xl:text-sm mb-1 pb-1 border-b border-gray-100 text-gray-700">
                     {monthAbbrev} {dayNum} &middot; {dayEvents.length} event{dayEvents.length !== 1 ? "s" : ""}
                   </div>
-                  <div class="space-y-0.5">
+                  <div class="space-y-0.5 2xl:space-y-1">
                     {dayEvents.map((event) => {
                       const dateRange = formatDateRange(event.start, event.end);
                       return (
-                        <div key={event.id} class="flex items-start gap-1.5 py-0.5 text-xs group/event">
+                        <div key={event.id} class="flex items-start gap-1.5 2xl:gap-2 py-0.5 text-xs 2xl:text-sm group/event">
                           <span
-                            class="w-2 h-2 rounded-full flex-shrink-0 mt-0.5"
+                            class="w-2 h-2 2xl:w-2.5 2xl:h-2.5 rounded-full flex-shrink-0 mt-0.5"
                             style={`background: ${getStripedBackground(event.colors)};`}
                           />
                           <div class="min-w-0 flex-1">
@@ -377,15 +400,15 @@ function ContinuousGrid({
                               </a>
                             </div>
                             {event.startTime && (
-                              <div class="text-[10px] text-gray-400">
+                              <div class="text-[10px] 2xl:text-xs text-gray-400">
                                 {event.startTime}{event.endTime && ` – ${event.endTime}`}
                               </div>
                             )}
                             {dateRange && (
-                              <div class="text-[10px] text-gray-400">{dateRange}</div>
+                              <div class="text-[10px] 2xl:text-xs text-gray-400">{dateRange}</div>
                             )}
                             {event.colors.length > 1 && (
-                              <div class="text-[10px] text-gray-400">{event.calendarNames.join(", ")}</div>
+                              <div class="text-[10px] 2xl:text-xs text-gray-400">{event.calendarNames.join(", ")}</div>
                             )}
                           </div>
                         </div>
@@ -415,6 +438,7 @@ function WeekendsAlignedGrid({
 }) {
   const COLS = 28; // 4 weeks × 7 days
   const today = formatDate(new Date());
+  const sizes = useResponsiveSizes();
 
   // Consolidate duplicate events (same name + same dates)
   const consolidatedEvents = consolidateCalendarEvents(events);
@@ -471,17 +495,17 @@ function WeekendsAlignedGrid({
   );
 
   return (
-    <div class="flex-1 bg-white p-2 overflow-auto">
+    <div class="flex-1 bg-white p-2 2xl:p-3 overflow-auto">
       {/* Day of week header */}
       <div
-        class="grid gap-px bg-gray-200 mb-px"
+        class="grid gap-px 2xl:gap-0.5 bg-gray-200 mb-px"
         style={`grid-template-columns: repeat(${COLS}, 1fr);`}
       >
         {Array.from({ length: 4 }).flatMap((_, weekIdx) =>
           DAY_ABBREVS.map((abbrev, dayIdx) => (
             <div
               key={`header-${weekIdx}-${dayIdx}`}
-              class={`text-[9px] text-center py-0.5 font-medium ${
+              class={`text-[9px] 2xl:text-[12px] text-center py-0.5 2xl:py-1 font-medium ${
                 dayIdx === 0 || dayIdx === 6 ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-500"
               }`}
             >
@@ -491,8 +515,8 @@ function WeekendsAlignedGrid({
         )}
       </div>
       <div
-        class="grid gap-px bg-gray-200 h-[calc(100%-20px)]"
-        style={`grid-template-columns: repeat(${COLS}, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, rowCount)};`}
+        class="grid gap-px 2xl:gap-0.5 bg-gray-200 h-[calc(100%-20px)]"
+        style={`grid-template-columns: repeat(${COLS}, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, rowCount, sizes)};`}
       >
         {cells.map((cell, idx) => {
           const { date: day, dateStr, isInYear } = cell;
@@ -522,9 +546,9 @@ function WeekendsAlignedGrid({
           return (
             <div
               key={`${dateStr}-${idx}`}
-              class={`group relative p-0.5 min-h-0 ${bgClass} ${isToday ? "ring-2 ring-orange-400 ring-inset z-10" : ""}`}
+              class={`group relative p-0.5 2xl:p-1 min-h-0 ${bgClass} ${isToday ? "ring-2 ring-orange-400 ring-inset z-10" : ""}`}
             >
-              <div class="flex items-baseline gap-0.5 text-[9px] leading-none">
+              <div class="flex items-baseline gap-0.5 2xl:gap-1 text-[9px] 2xl:text-[12px] leading-none">
                 {isFirstOfMonth && isInYear && (
                   <span class="font-bold text-orange-600">{monthAbbrev}</span>
                 )}
@@ -551,38 +575,38 @@ function WeekendsAlignedGrid({
                 return (
                   <div
                     key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
-                    class={`text-[8px] rounded-sm px-0.5 text-white leading-tight pointer-events-auto ${
+                    class={`text-[8px] 2xl:text-[11px] rounded-sm px-0.5 2xl:px-1 text-white leading-tight pointer-events-auto ${
                       isMultiDay ? "truncate" : "overflow-hidden break-words"
                     }`}
                     style={`
                       background: ${getStripedBackground(seg.event.colors)};
                       position: absolute;
                       left: 2px;
-                      top: ${14 + slot * 11}px;
+                      top: ${sizes.headerHeight + slot * sizes.eventHeight}px;
                       width: calc(${span * 100}% - 4px);
                       z-index: ${20 + slot};
                       ${!isMultiDay ? "display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;" : ""}
                       ${!seg.event.isAllDay ? "opacity: 0.7;" : ""}
                     `}
                   >
-                    {seg.event.isRecurring && <span class="absolute top-0 right-0.5 opacity-50 text-[8px]">↻</span>}{seg.event.summary}
+                    {seg.event.isRecurring && <span class="absolute top-0 right-0.5 opacity-50 text-[8px] 2xl:text-[10px]">↻</span>}{seg.event.summary}
                   </div>
                 );
               })}
 
               {/* Hover popup */}
               {dayEvents.length > 0 && (
-                <div class="hidden group-hover:block absolute z-[100] left-full top-0 ml-1 bg-white rounded-lg shadow-lg border border-gray-200 p-2 min-w-[180px] max-h-[250px] overflow-auto">
-                  <div class="font-semibold text-xs mb-1 pb-1 border-b border-gray-100 text-gray-700">
+                <div class="hidden group-hover:block absolute z-[100] left-full top-0 ml-1 bg-white rounded-lg shadow-lg border border-gray-200 p-2 2xl:p-3 min-w-[180px] 2xl:min-w-[220px] max-h-[250px] 2xl:max-h-[300px] overflow-auto">
+                  <div class="font-semibold text-xs 2xl:text-sm mb-1 pb-1 border-b border-gray-100 text-gray-700">
                     {monthAbbrev} {dayNum} &middot; {dayEvents.length} event{dayEvents.length !== 1 ? "s" : ""}
                   </div>
-                  <div class="space-y-0.5">
+                  <div class="space-y-0.5 2xl:space-y-1">
                     {dayEvents.map((event) => {
                       const dateRange = formatDateRange(event.start, event.end);
                       return (
-                        <div key={event.id} class="flex items-start gap-1.5 py-0.5 text-xs group/event">
+                        <div key={event.id} class="flex items-start gap-1.5 2xl:gap-2 py-0.5 text-xs 2xl:text-sm group/event">
                           <span
-                            class="w-2 h-2 rounded-full flex-shrink-0 mt-0.5"
+                            class="w-2 h-2 2xl:w-2.5 2xl:h-2.5 rounded-full flex-shrink-0 mt-0.5"
                             style={`background: ${getStripedBackground(event.colors)};`}
                           />
                           <div class="min-w-0 flex-1">
@@ -598,15 +622,15 @@ function WeekendsAlignedGrid({
                               </a>
                             </div>
                             {event.startTime && (
-                              <div class="text-[10px] text-gray-400">
+                              <div class="text-[10px] 2xl:text-xs text-gray-400">
                                 {event.startTime}{event.endTime && ` – ${event.endTime}`}
                               </div>
                             )}
                             {dateRange && (
-                              <div class="text-[10px] text-gray-400">{dateRange}</div>
+                              <div class="text-[10px] 2xl:text-xs text-gray-400">{dateRange}</div>
                             )}
                             {event.colors.length > 1 && (
-                              <div class="text-[10px] text-gray-400">{event.calendarNames.join(", ")}</div>
+                              <div class="text-[10px] 2xl:text-xs text-gray-400">{event.calendarNames.join(", ")}</div>
                             )}
                           </div>
                         </div>
@@ -636,6 +660,7 @@ function MonthRowGrid({
 }) {
   const today = formatDate(new Date());
   const COLS = 31;
+  const sizes = useResponsiveSizes();
 
   // Consolidate duplicate events (same name + same dates)
   const consolidatedEvents = consolidateCalendarEvents(events);
@@ -668,9 +693,11 @@ function MonthRowGrid({
     COLS
   );
 
+  const monthLabelWidth = sizes.isLarge ? 50 : 40;
+
   return (
-    <div class="flex-1 bg-white p-2 overflow-auto">
-      <div class="grid h-full" style={`grid-template-columns: 40px repeat(31, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, 12)}; gap: 1px; background: #e5e7eb;`}>
+    <div class="flex-1 bg-white p-2 2xl:p-3 overflow-auto">
+      <div class="grid h-full" style={`grid-template-columns: ${monthLabelWidth}px repeat(31, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, 12, sizes)}; gap: ${sizes.isLarge ? '2px' : '1px'}; background: #e5e7eb;`}>
         {months.map((m) => {
           const isOddMonth = m.monthIdx % 2 === 1;
           const rowSegments = segmentsByRow.get(m.monthIdx) || [];
@@ -680,7 +707,7 @@ function MonthRowGrid({
               {/* Month label cell */}
               <div
                 key={`label-${m.monthIdx}`}
-                class={`flex items-center justify-center text-[10px] font-bold text-orange-600 ${
+                class={`flex items-center justify-center text-[10px] 2xl:text-[13px] font-bold text-orange-600 ${
                   isOddMonth ? "bg-gray-50" : "bg-white"
                 }`}
               >
@@ -711,10 +738,10 @@ function MonthRowGrid({
                 return (
                   <div
                     key={`${m.monthIdx}-${dayIdx}`}
-                    class={`group relative p-0.5 min-h-0 ${bgClass} ${isToday ? "ring-2 ring-orange-400 ring-inset z-10" : ""}`}
+                    class={`group relative p-0.5 2xl:p-1 min-h-0 ${bgClass} ${isToday ? "ring-2 ring-orange-400 ring-inset z-10" : ""}`}
                   >
                     {day && (
-                      <div class={`text-[9px] leading-none ${isToday ? "text-orange-500 font-bold" : "text-gray-600"}`}>
+                      <div class={`text-[9px] 2xl:text-[12px] leading-none ${isToday ? "text-orange-500 font-bold" : "text-gray-600"}`}>
                         {day.getDate()}
                       </div>
                     )}
@@ -727,38 +754,38 @@ function MonthRowGrid({
                       return (
                         <div
                           key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
-                          class={`text-[8px] rounded-sm px-0.5 text-white leading-tight pointer-events-auto ${
+                          class={`text-[8px] 2xl:text-[11px] rounded-sm px-0.5 2xl:px-1 text-white leading-tight pointer-events-auto ${
                             isMultiDay ? "truncate" : "overflow-hidden break-words"
                           }`}
                           style={`
                             background: ${getStripedBackground(seg.event.colors)};
                             position: absolute;
                             left: 2px;
-                            top: ${12 + slot * 11}px;
+                            top: ${(sizes.headerHeight - 2) + slot * sizes.eventHeight}px;
                             width: calc(${span * 100}% - 4px);
                             z-index: ${20 + slot};
                             ${!isMultiDay ? "display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;" : ""}
                             ${!seg.event.isAllDay ? "opacity: 0.7;" : ""}
                           `}
                         >
-                          {seg.event.isRecurring && <span class="absolute top-0 right-0.5 opacity-50 text-[8px]">↻</span>}{seg.event.summary}
+                          {seg.event.isRecurring && <span class="absolute top-0 right-0.5 opacity-50 text-[8px] 2xl:text-[10px]">↻</span>}{seg.event.summary}
                         </div>
                       );
                     })}
 
                     {/* Hover popup */}
                     {dayEvents.length > 0 && (
-                      <div class="hidden group-hover:block absolute z-[100] left-full top-0 ml-1 bg-white rounded-lg shadow-lg border border-gray-200 p-2 min-w-[180px] max-h-[250px] overflow-auto">
-                        <div class="font-semibold text-xs mb-1 pb-1 border-b border-gray-100 text-gray-700">
+                      <div class="hidden group-hover:block absolute z-[100] left-full top-0 ml-1 bg-white rounded-lg shadow-lg border border-gray-200 p-2 2xl:p-3 min-w-[180px] 2xl:min-w-[220px] max-h-[250px] 2xl:max-h-[300px] overflow-auto">
+                        <div class="font-semibold text-xs 2xl:text-sm mb-1 pb-1 border-b border-gray-100 text-gray-700">
                           {m.abbrev} {day?.getDate()} &middot; {dayEvents.length} event{dayEvents.length !== 1 ? "s" : ""}
                         </div>
-                        <div class="space-y-0.5">
+                        <div class="space-y-0.5 2xl:space-y-1">
                           {dayEvents.map((event) => {
                             const dateRange = formatDateRange(event.start, event.end);
                             return (
-                              <div key={event.id} class="flex items-start gap-1.5 py-0.5 text-xs group/event">
+                              <div key={event.id} class="flex items-start gap-1.5 2xl:gap-2 py-0.5 text-xs 2xl:text-sm group/event">
                                 <span
-                                  class="w-2 h-2 rounded-full flex-shrink-0 mt-0.5"
+                                  class="w-2 h-2 2xl:w-2.5 2xl:h-2.5 rounded-full flex-shrink-0 mt-0.5"
                                   style={`background: ${getStripedBackground(event.colors)};`}
                                 />
                                 <div class="min-w-0 flex-1">
@@ -774,15 +801,15 @@ function MonthRowGrid({
                                     </a>
                                   </div>
                                   {event.startTime && (
-                                    <div class="text-[10px] text-gray-400">
+                                    <div class="text-[10px] 2xl:text-xs text-gray-400">
                                       {event.startTime}{event.endTime && ` – ${event.endTime}`}
                                     </div>
                                   )}
                                   {dateRange && (
-                                    <div class="text-[10px] text-gray-400">{dateRange}</div>
+                                    <div class="text-[10px] 2xl:text-xs text-gray-400">{dateRange}</div>
                                   )}
                                   {event.colors.length > 1 && (
-                                    <div class="text-[10px] text-gray-400">{event.calendarNames.join(", ")}</div>
+                                    <div class="text-[10px] 2xl:text-xs text-gray-400">{event.calendarNames.join(", ")}</div>
                                   )}
                                 </div>
                               </div>

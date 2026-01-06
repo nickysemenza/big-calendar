@@ -1,7 +1,7 @@
 import type { Session, User } from "better-auth";
-import type { GoogleCalendar } from "./lib/validators";
+import type { GoogleCalendar, CalendarEvent, CalendarInfo } from "./lib/validators";
 
-export type { GoogleCalendar };
+export type { GoogleCalendar, CalendarEvent, CalendarInfo };
 
 export type Bindings = {
   DB: D1Database;
@@ -17,29 +17,6 @@ export type Variables = {
   session: Session | null;
   accessToken: string | null;
 };
-
-export interface CalendarEvent {
-  id: string;
-  summary: string;
-  start: string; // YYYY-MM-DD
-  end: string; // YYYY-MM-DD (exclusive)
-  startTime?: string; // HH:MM for timed events
-  endTime?: string; // HH:MM for timed events
-  calendarId: string;
-  calendarName: string;
-  color: string;
-  isAllDay: boolean;
-  isRecurring: boolean;
-}
-
-export interface CalendarInfo {
-  id: string;
-  hash: string; // Short 4-char hash for URL-friendly hiding
-  name: string;
-  color: string;
-  eventCount: number;
-  hidden: boolean;
-}
 
 // Simple hash function - produces 4 hex chars from a string
 export function shortHash(str: string): string {

@@ -9,9 +9,10 @@ interface Props {
   showTimed: boolean;
   hideRecurring: boolean;
   hiddenEventCount: number;
+  totalEvents: number;
 }
 
-export function Header({ year, view, calendars, userEmail, showTimed, hideRecurring, hiddenEventCount }: Props) {
+export function Header({ year, view, calendars, userEmail, showTimed, hideRecurring, hiddenEventCount, totalEvents }: Props) {
   const now = new Date();
   const currentYear = now.getFullYear();
 
@@ -77,6 +78,9 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
           {yearProgress !== null && (
             <span class="text-sm text-gray-500 font-normal">{yearProgress}%</span>
           )}
+          <span class="text-sm text-gray-500 font-normal ml-2 pl-2 border-l border-gray-300">
+            {totalEvents} events
+          </span>
           <a
             href={buildUrl({ year: year + 1 })}
             class="p-2 hover:bg-gray-100 rounded text-gray-600"

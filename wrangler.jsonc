@@ -5,9 +5,19 @@
   "compatibility_date": "2025-08-03",
   "compatibility_flags": ["nodejs_compat"],
   "main": "./src/index.tsx",
+  "routes": [
+    { "pattern": "cal.nickysemenza.com", "custom_domain": true }
+  ],
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": true
+    }
+  },
   "vars": {
-    "GOOGLE_CLIENT_ID": "",
-    "BETTER_AUTH_URL": "http://localhost:5173"
+    "GOOGLE_CLIENT_ID": "1090759919994-otq9nce3n9pk8tltffreccsh88bg5m2o.apps.googleusercontent.com",
+    "BETTER_AUTH_URL": "https://cal.nickysemenza.com"
   },
   "d1_databases": [
     {

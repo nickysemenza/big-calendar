@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="calGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4F46E5"/>
+      <stop offset="100%" style="stop-color:#7C3AED"/>
+    </linearGradient>
+  </defs>
+  <!-- Calendar body -->
+  <rect x="2" y="6" width="28" height="24" rx="4" fill="url(#calGrad)"/>
+  <!-- Calendar header -->
+  <rect x="2" y="6" width="28" height="8" rx="4" fill="#312E81"/>
+  <rect x="2" y="10" width="28" height="4" fill="#312E81"/>
+  <!-- Binding rings -->
+  <rect x="8" y="3" width="3" height="6" rx="1.5" fill="#E0E7FF"/>
+  <rect x="21" y="3" width="3" height="6" rx="1.5" fill="#E0E7FF"/>
+  <!-- Calendar grid dots -->
+  <circle cx="9" cy="20" r="2" fill="#E0E7FF"/>
+  <circle cx="16" cy="20" r="2" fill="#E0E7FF"/>
+  <circle cx="23" cy="20" r="2" fill="#E0E7FF"/>
+  <circle cx="9" cy="26" r="2" fill="#E0E7FF" opacity="0.6"/>
+  <circle cx="16" cy="26" r="2" fill="#E0E7FF" opacity="0.6"/>
+  <circle cx="23" cy="26" r="2" fill="#C7D2FE"/>
+</svg>

@@ -3,7 +3,7 @@ import { shortHash, type Bindings, type Variables, type CalendarEvent, type Cale
 import { createAuth } from "./lib/auth";
 import { authMiddleware } from "./middleware/auth";
 import { getCalendarList, getEvents } from "./lib/google-calendar";
-import { calendarQuerySchema, type AuthResponse } from "./lib/validators";
+import { calendarQuerySchema, authResponseSchema } from "./lib/validators";
 import { Header } from "./components/Header";
 import { YearCalendar } from "./components/YearCalendar";
 import { renderer } from "./renderer";
@@ -81,7 +81,7 @@ app.get("/signin", async (c) => {
   // Check if response is JSON with redirect URL
   const contentType = response.headers.get("Content-Type") || "";
   if (contentType.includes("application/json")) {
-    const data = (await response.json()) as AuthResponse;
+    const data = authResponseSchema.parse(await response.json());
     if (data.url && data.redirect) {
       // Create redirect response with cookies from auth
       const redirectResponse = c.redirect(data.url);
@@ -243,6 +243,7 @@ app.get("/", authMiddleware, async (c) => {
         showTimed={showTimed}
         hideRecurring={hideRecurring}
         hiddenEventCount={hiddenEventHashes.size}
+        totalEvents={visibleEvents.length}
       />
       <YearCalendar
         year={year}

@@ -11,6 +11,9 @@ importers:
       '@hono/zod-validator':
         specifier: ^0.7.6
         version: 0.7.6(hono@4.11.3)(zod@4.3.5)
+      '@preact/signals':
+        specifier: ^2.5.1
+        version: 2.5.1(preact@10.28.2)
       better-auth:
         specifier: ^1.4.10
         version: 1.4.10(drizzle-kit@0.31.8)(drizzle-orm@0.45.1(kysely@0.28.9))
@@ -773,6 +776,14 @@ packages:
   '@poppinss/exception@1.2.3':
     resolution: {integrity: sha512-dCED+QRChTVatE9ibtoaxc+WkdzOSjYTKi/+uacHWIsfodVfpsueo3+DKpgU5Px8qXjgmXkSvhXvSCz3fnP9lw==}
 
+  '@preact/signals-core@1.12.1':
+    resolution: {integrity: sha512-BwbTXpj+9QutoZLQvbttRg5x3l5468qaV2kufh+51yha1c53ep5dY4kTuZR35+3pAZxpfQerGJiQqg34ZNZ6uA==}
+
+  '@preact/signals@2.5.1':
+    resolution: {integrity: sha512-VPjk5YFt7i11Fi4UK0tzaEe5xLwfhUxXL3l89ocxQ5aPz7bRo8M5+N73LjBMPklyXKYKz6YsNo4Smp8n6nplng==}
+    peerDependencies:
+      preact: '>= 10.25.0 || >=11.0.0-0'
+
   '@remix-run/node-fetch-server@0.8.1':
     resolution: {integrity: sha512-J1dev372wtJqmqn9U/qbpbZxbJSQrogNN2+Qv1lKlpATpe/WQ9aCZfl/xSb9d2Rgh1IyLSvNxZAXPZxruO6Xig==}
 
@@ -1525,6 +1536,9 @@ packages:
     resolution: {integrity: sha512-3Ybi1tAuwAP9s0r1UQ2J4n5Y0G05bJkpUIO0/bI9MhwmD70S5aTWbXGBwxHrelT+XM1k6dM0pk+SwNkpTRN7Pg==}
     engines: {node: ^10 || ^12 || >=14}
 
+  preact@10.28.2:
+    resolution: {integrity: sha512-lbteaWGzGHdlIuiJ0l2Jq454m6kcpI1zNje6d8MlGAFlYvP2GO4ibnat7P74Esfz4sPTdM6UxtTwh/d3pwM9JA==}
+
   resolve-pkg-maps@1.0.0:
     resolution: {integrity: sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==}
 
@@ -2153,6 +2167,13 @@ snapshots:
 
   '@poppinss/exception@1.2.3': {}
 
+  '@preact/signals-core@1.12.1': {}
+
+  '@preact/signals@2.5.1(preact@10.28.2)':
+    dependencies:
+      '@preact/signals-core': 1.12.1
+      preact: 10.28.2
+
   '@remix-run/node-fetch-server@0.8.1': {}
 
   '@rollup/rollup-android-arm-eabi@4.55.1':
@@ -2653,6 +2674,8 @@ snapshots:
       nanoid: 3.3.11
       picocolors: 1.1.1
       source-map-js: 1.2.1
+
+  preact@10.28.2: {}
 
   resolve-pkg-maps@1.0.0: {}
 

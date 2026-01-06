@@ -52,3 +52,31 @@ export const authResponseSchema = z.object({
 });
 
 export type AuthResponse = z.infer<typeof authResponseSchema>;
+
+// Internal app types
+export const calendarEventSchema = z.object({
+  id: z.string(),
+  summary: z.string(),
+  start: z.string(), // YYYY-MM-DD
+  end: z.string(), // YYYY-MM-DD (exclusive)
+  startTime: z.string().optional(), // HH:MM for timed events
+  endTime: z.string().optional(), // HH:MM for timed events
+  calendarId: z.string(),
+  calendarName: z.string(),
+  color: z.string(),
+  isAllDay: z.boolean(),
+  isRecurring: z.boolean(),
+});
+
+export type CalendarEvent = z.infer<typeof calendarEventSchema>;
+
+export const calendarInfoSchema = z.object({
+  id: z.string(),
+  hash: z.string(), // Short 4-char hash for URL-friendly hiding
+  name: z.string(),
+  color: z.string(),
+  eventCount: z.number(),
+  hidden: z.boolean(),
+});
+
+export type CalendarInfo = z.infer<typeof calendarInfoSchema>;
