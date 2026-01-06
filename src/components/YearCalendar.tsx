@@ -1,5 +1,6 @@
 import type { CalendarEvent } from "../env";
 import { shortHash } from "../env";
+import type { View } from "../lib/validators";
 import {
   getAllDaysOfYear,
   formatDate,
@@ -64,7 +65,7 @@ function consolidateCalendarEvents(events: CalendarEvent[]): ConsolidatedCalenda
 interface Props {
   year: number;
   events: CalendarEvent[];
-  view: "continuous" | "month" | "weekends";
+  view: View;
   hideCalendars: string;
   hideEvents: string;
   showTimed: boolean;

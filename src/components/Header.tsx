@@ -1,8 +1,9 @@
 import type { CalendarInfo } from "../env";
+import type { View, BuildUrlOverrides } from "../lib/validators";
 
 interface Props {
   year: number;
-  view: "continuous" | "month" | "weekends";
+  view: View;
   calendars: CalendarInfo[];
   userEmail: string;
   showTimed: boolean;
@@ -34,13 +35,7 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
     .join(",");
 
   // Build URL with optional overrides
-  function buildUrl(overrides: {
-    year?: number;
-    view?: string;
-    timed?: boolean;
-    hideRecurring?: boolean;
-    hide?: string;
-  } = {}): string {
+  function buildUrl(overrides: BuildUrlOverrides = {}): string {
     const params = new URLSearchParams();
     params.set("year", String(overrides.year ?? year));
     params.set("view", overrides.view ?? view);

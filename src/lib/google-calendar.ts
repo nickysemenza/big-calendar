@@ -1,5 +1,5 @@
 import type { CalendarEvent, GoogleCalendar } from "../env";
-import { googleCalendarListSchema } from "./validators";
+import { googleCalendarListSchema, type GoogleEventsResponse } from "./validators";
 import { toDateString, toTimeString, addDays } from "./dates";
 
 // Special Google system calendars that don't appear in calendarList
@@ -89,11 +89,7 @@ export async function getCalendarList(
       );
 
       if (specialRes.ok) {
-        const cal = (await specialRes.json()) as {
-          id: string;
-          summary: string;
-          backgroundColor?: string;
-        };
+        const cal = (await specialRes.json()) as GoogleCalendar;
         return {
           id: cal.id,
           summary: cal.summary || special.name,
@@ -164,15 +160,7 @@ export async function getEvents(
         return [];
       }
 
-      const data = (await res.json()) as {
-        items?: Array<{
-          id: string;
-          summary?: string;
-          start?: { date?: string; dateTime?: string };
-          end?: { date?: string; dateTime?: string };
-          recurringEventId?: string;
-        }>;
-      };
+      const data = (await res.json()) as GoogleEventsResponse;
 
       const calendarEvents: CalendarEvent[] = [];
       for (const item of data.items || []) {

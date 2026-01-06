@@ -1,4 +1,7 @@
 import type { Session, User } from "better-auth";
+import type { GoogleCalendar } from "./lib/validators";
+
+export type { GoogleCalendar };
 
 export type Bindings = {
   DB: D1Database;
@@ -27,12 +30,6 @@ export interface CalendarEvent {
   color: string;
   isAllDay: boolean;
   isRecurring: boolean;
-}
-
-export interface GoogleCalendar {
-  id: string;
-  summary: string;
-  backgroundColor?: string;
 }
 
 export interface CalendarInfo {
