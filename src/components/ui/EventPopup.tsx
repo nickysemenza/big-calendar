@@ -44,9 +44,7 @@ export function EventPopup({ events, dateLabel, buildHideEventUrl }: EventPopupP
                 {dateRange && (
                   <div class="text-[10px] 2xl:text-xs text-gray-400">{dateRange}</div>
                 )}
-                {event.colors.length > 1 && (
-                  <div class="text-[10px] 2xl:text-xs text-gray-400">{event.calendarNames.join(", ")}</div>
-                )}
+                <div class="text-[10px] 2xl:text-xs text-gray-400">{event.calendarNames.join(", ")}</div>
               </div>
             </div>
           );

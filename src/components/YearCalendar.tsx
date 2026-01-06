@@ -19,9 +19,9 @@ function useResponsiveSizes() {
   const isLarge = typeof window !== "undefined" && window.matchMedia("(min-width: 1536px)").matches;
 
   return {
-    minRowHeight: isLarge ? 44 : 32,
-    headerHeight: isLarge ? 18 : 14,
-    eventHeight: isLarge ? 15 : 11,
+    minRowHeight: isLarge ? 38 : 26,
+    headerHeight: isLarge ? 14 : 11,
+    eventHeight: isLarge ? 13 : 10,
     isLarge,
   };
 }
@@ -86,9 +86,9 @@ const MONTH_ABBREVS = [
 ];
 
 // Row height defaults (overridden by useResponsiveSizes on large screens)
-const DEFAULT_MIN_ROW_HEIGHT = 32;
-const DEFAULT_HEADER_HEIGHT = 14;
-const DEFAULT_EVENT_HEIGHT = 11;
+const DEFAULT_MIN_ROW_HEIGHT = 26;
+const DEFAULT_HEADER_HEIGHT = 11;
+const DEFAULT_EVENT_HEIGHT = 10;
 
 // Helper to get events for a specific date
 function getEventsForDate(events: CalendarEvent[], dateStr: string): CalendarEvent[] {
@@ -233,9 +233,9 @@ function ContinuousGrid({
   );
 
   return (
-    <div class="flex-1 bg-white p-2 2xl:p-3 overflow-auto">
+    <div class="flex-1 bg-white p-1 overflow-auto">
       <div
-        class="grid gap-px 2xl:gap-0.5 bg-gray-200 h-full"
+        class="grid gap-px bg-gray-200 h-full"
         style={`grid-template-columns: repeat(${COLS}, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, rowCount, sizes)};`}
       >
         {allDays.map((day, idx) => {
@@ -264,24 +264,26 @@ function ContinuousGrid({
           return (
             <div
               key={dateStr}
-              class={`group relative p-0.5 2xl:p-1 min-h-0 ${bgClass} ${isToday ? "ring-2 ring-orange-400 ring-inset z-10" : ""}`}
+              class={`group relative px-0.5 min-h-0 ${bgClass} ${isToday ? "ring-1 ring-orange-400 ring-inset z-10" : ""}`}
             >
-              <div class="flex items-baseline gap-0.5 2xl:gap-1 text-[9px] 2xl:text-[12px] leading-none">
-                {isFirstOfMonth && (
-                  <span class="font-bold text-orange-600">{monthAbbrev}</span>
-                )}
-                <span class="text-gray-400">{DAY_ABBREVS[dayOfWeek]}</span>
-                <span
-                  class={`font-medium ${
-                    isToday
-                      ? "text-orange-500 font-bold"
-                      : isFirstOfMonth
-                        ? "text-orange-600 font-bold"
-                        : "text-gray-600"
-                  }`}
-                >
-                  {dayNum}
+              <div class="flex items-baseline justify-between text-[8px] 2xl:text-[10px] leading-none">
+                <span class="flex items-baseline gap-px">
+                  {isFirstOfMonth && (
+                    <span class="font-bold text-orange-600">{monthAbbrev}</span>
+                  )}
+                  <span
+                    class={`${
+                      isToday
+                        ? "text-orange-500 font-bold"
+                        : isFirstOfMonth
+                          ? "text-orange-600 font-bold"
+                          : "text-gray-500"
+                    }`}
+                  >
+                    {dayNum}
+                  </span>
                 </span>
+                <span class="text-gray-400">{DAY_ABBREVS[dayOfWeek]}</span>
               </div>
 
               {cellSegments.map((seg, segIdx) => (
@@ -377,27 +379,27 @@ function WeekendsAlignedGrid({
   );
 
   return (
-    <div class="flex-1 bg-white p-2 2xl:p-3 overflow-auto">
+    <div class="flex-1 bg-white p-1 overflow-auto">
       {/* Day of week header */}
       <div
-        class="grid gap-px 2xl:gap-0.5 bg-gray-200 mb-px"
+        class="grid gap-px bg-gray-200 mb-px"
         style={`grid-template-columns: repeat(${COLS}, 1fr);`}
       >
         {Array.from({ length: 4 }).flatMap((_, weekIdx) =>
           DAY_ABBREVS.map((abbrev, dayIdx) => (
             <div
               key={`header-${weekIdx}-${dayIdx}`}
-              class={`text-[9px] 2xl:text-[12px] text-center py-0.5 2xl:py-1 font-medium ${
+              class={`text-[7px] 2xl:text-[9px] text-center py-px font-medium ${
                 dayIdx === 0 || dayIdx === 6 ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-500"
               }`}
             >
-              {abbrev}
+              {abbrev.charAt(0)}
             </div>
           ))
         )}
       </div>
       <div
-        class="grid gap-px 2xl:gap-0.5 bg-gray-200 h-[calc(100%-20px)]"
+        class="grid gap-px bg-gray-200 h-[calc(100%-14px)]"
         style={`grid-template-columns: repeat(${COLS}, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, rowCount, sizes)};`}
       >
         {cells.map((cell, idx) => {
@@ -428,21 +430,21 @@ function WeekendsAlignedGrid({
           return (
             <div
               key={`${dateStr}-${idx}`}
-              class={`group relative p-0.5 2xl:p-1 min-h-0 ${bgClass} ${isToday ? "ring-2 ring-orange-400 ring-inset z-10" : ""}`}
+              class={`group relative px-0.5 min-h-0 ${bgClass} ${isToday ? "ring-1 ring-orange-400 ring-inset z-10" : ""}`}
             >
-              <div class="flex items-baseline gap-0.5 2xl:gap-1 text-[9px] 2xl:text-[12px] leading-none">
+              <div class="flex items-baseline gap-px text-[8px] 2xl:text-[10px] leading-none">
                 {isFirstOfMonth && isInYear && (
                   <span class="font-bold text-orange-600">{monthAbbrev}</span>
                 )}
                 <span
-                  class={`font-medium ${
+                  class={`${
                     !isInYear
                       ? "text-gray-300"
                       : isToday
                         ? "text-orange-500 font-bold"
                         : isFirstOfMonth
                           ? "text-orange-600 font-bold"
-                          : "text-gray-600"
+                          : "text-gray-500"
                   }`}
                 >
                   {dayNum}
@@ -518,11 +520,11 @@ function MonthRowGrid({
     COLS
   );
 
-  const monthLabelWidth = sizes.isLarge ? 50 : 40;
+  const monthLabelWidth = sizes.isLarge ? 32 : 24;
 
   return (
-    <div class="flex-1 bg-white p-2 2xl:p-3 overflow-auto">
-      <div class="grid h-full" style={`grid-template-columns: ${monthLabelWidth}px repeat(31, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, 12, sizes)}; gap: ${sizes.isLarge ? '2px' : '1px'}; background: #e5e7eb;`}>
+    <div class="flex-1 bg-white p-1 overflow-auto">
+      <div class="grid h-full" style={`grid-template-columns: ${monthLabelWidth}px repeat(31, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, 12, sizes)}; gap: 1px; background: #e5e7eb;`}>
         {months.map((m) => {
           const isOddMonth = m.monthIdx % 2 === 1;
           const rowSegments = segmentsByRow.get(m.monthIdx) || [];
@@ -532,7 +534,7 @@ function MonthRowGrid({
               {/* Month label cell */}
               <div
                 key={`label-${m.monthIdx}`}
-                class={`flex items-center justify-center text-[10px] 2xl:text-[13px] font-bold text-orange-600 ${
+                class={`flex items-center justify-center text-[8px] 2xl:text-[10px] font-bold text-orange-600 ${
                   isOddMonth ? "bg-gray-50" : "bg-white"
                 }`}
               >
@@ -563,10 +565,10 @@ function MonthRowGrid({
                 return (
                   <div
                     key={`${m.monthIdx}-${dayIdx}`}
-                    class={`group relative p-0.5 2xl:p-1 min-h-0 ${bgClass} ${isToday ? "ring-2 ring-orange-400 ring-inset z-10" : ""}`}
+                    class={`group relative px-0.5 min-h-0 ${bgClass} ${isToday ? "ring-1 ring-orange-400 ring-inset z-10" : ""}`}
                   >
                     {day && (
-                      <div class={`text-[9px] 2xl:text-[12px] leading-none ${isToday ? "text-orange-500 font-bold" : "text-gray-600"}`}>
+                      <div class={`text-[8px] 2xl:text-[10px] leading-none ${isToday ? "text-orange-500 font-bold" : "text-gray-500"}`}>
                         {day.getDate()}
                       </div>
                     )}

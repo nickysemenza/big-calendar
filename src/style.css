@@ -30,19 +30,21 @@
 
 /* Event Segment - used by EventSegment component */
 .event-segment {
-  @apply text-[8px] 2xl:text-[11px] rounded-sm px-0.5 2xl:px-1;
-  @apply text-white leading-tight pointer-events-auto;
+  @apply text-[7px] 2xl:text-[9px] rounded-sm px-px;
+  @apply text-white leading-none pointer-events-auto;
 }
 
 .event-segment-multiday {
   @apply truncate;
+  height: 10px;
 }
 
 .event-segment-singleday {
   @apply overflow-hidden break-words;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
+  height: 10px;
 }
 
 .recurring-icon {

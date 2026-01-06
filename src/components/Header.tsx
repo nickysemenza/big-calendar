@@ -63,27 +63,27 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
   }
 
   return (
-    <header class="flex items-center justify-between px-4 py-2 border-b shrink-0 bg-white">
-      <div class="flex items-center gap-4">
-        <div class="flex items-center gap-2">
+    <header class="flex items-center justify-between px-2 py-1 border-b shrink-0 bg-white">
+      <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1">
           <a
             href={buildUrl({ year: year - 1 })}
-            class="p-2 hover:bg-gray-100 rounded text-gray-600"
+            class="p-1 hover:bg-gray-100 rounded text-gray-600 text-sm"
           >
             &larr;
           </a>
-          <h1 class="text-2xl font-bold tabular-nums min-w-[5ch] text-center">
+          <h1 class="text-lg font-bold tabular-nums min-w-[4ch] text-center">
             {year}
           </h1>
           {yearProgress !== null && (
-            <span class="text-sm text-gray-500 font-normal">{yearProgress}%</span>
+            <span class="text-xs text-gray-500 font-normal">{yearProgress}%</span>
           )}
-          <span class="text-sm text-gray-500 font-normal ml-2 pl-2 border-l border-gray-300">
-            {totalEvents} events
+          <span class="text-xs text-gray-500 font-normal ml-1 pl-1 border-l border-gray-300">
+            {totalEvents}
           </span>
           <a
             href={buildUrl({ year: year + 1 })}
-            class="p-2 hover:bg-gray-100 rounded text-gray-600"
+            class="p-1 hover:bg-gray-100 rounded text-gray-600 text-sm"
           >
             &rarr;
           </a>
@@ -91,40 +91,39 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
         {year !== currentYear && (
           <a
             href={buildUrl({ year: currentYear })}
-            class="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded"
+            class="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 rounded"
           >
             Today
           </a>
         )}
-        <div class="flex items-center gap-2 px-3 py-1 text-sm">
-          <span class="text-gray-500">View:</span>
-          <div class="flex gap-1">
+        <div class="flex items-center gap-1 text-xs">
+          <div class="flex">
             <a
               href={buildUrl({ view: "continuous" })}
-              class={`px-2 py-0.5 rounded text-xs ${view === "continuous" ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+              class={`px-1.5 py-0.5 rounded-l border-r border-gray-200 ${view === "continuous" ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
             >
-              Continuous
+              Cont
             </a>
             <a
               href={buildUrl({ view: "month" })}
-              class={`px-2 py-0.5 rounded text-xs ${view === "month" ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+              class={`px-1.5 py-0.5 border-r border-gray-200 ${view === "month" ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
             >
-              Month rows
+              Month
             </a>
             <a
               href={buildUrl({ view: "weekends" })}
-              class={`px-2 py-0.5 rounded text-xs ${view === "weekends" ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+              class={`px-1.5 py-0.5 rounded-r ${view === "weekends" ? "bg-blue-600 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
             >
-              Week rows
+              Week
             </a>
           </div>
         </div>
         <a
           href={buildUrl({ timed: !showTimed })}
-          class="flex items-center gap-2 px-3 py-1 text-sm hover:bg-gray-100 rounded cursor-pointer"
+          class="flex items-center gap-1 px-1.5 py-0.5 text-xs hover:bg-gray-100 rounded cursor-pointer"
         >
           <span
-            class={`w-4 h-4 border rounded flex items-center justify-center ${
+            class={`w-3 h-3 border rounded text-[8px] flex items-center justify-center ${
               showTimed
                 ? "bg-blue-600 border-blue-600 text-white"
                 : "border-gray-400"
@@ -132,14 +131,14 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
           >
             {showTimed && "✓"}
           </span>
-          <span class="text-gray-700">Timed events</span>
+          <span class="text-gray-700">Timed</span>
         </a>
         <a
           href={buildUrl({ hideRecurring: !hideRecurring })}
-          class="flex items-center gap-2 px-3 py-1 text-sm hover:bg-gray-100 rounded cursor-pointer"
+          class="flex items-center gap-1 px-1.5 py-0.5 text-xs hover:bg-gray-100 rounded cursor-pointer"
         >
           <span
-            class={`w-4 h-4 border rounded flex items-center justify-center ${
+            class={`w-3 h-3 border rounded text-[8px] flex items-center justify-center ${
               hideRecurring
                 ? "bg-blue-600 border-blue-600 text-white"
                 : "border-gray-400"
@@ -147,38 +146,36 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
           >
             {hideRecurring && "✓"}
           </span>
-          <span class="text-gray-700">Hide recurring</span>
+          <span class="text-gray-700">Recurring</span>
         </a>
 
         {/* Calendar filters */}
         {calendars.filter((c) => c.eventCount > 0).length > 0 && (
           <div
-            class="grid gap-x-4 gap-y-0.5 ml-2 pl-4 border-l border-gray-200"
-            style="grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); grid-auto-rows: auto; max-width: 600px;"
+            class="flex flex-wrap gap-x-2 gap-y-0 ml-1 pl-2 border-l border-gray-200"
+            style="max-width: 500px;"
           >
             {calendars.filter((c) => c.eventCount > 0).map((cal) => (
               <a
                 key={cal.id}
                 href={buildCalendarToggleUrl(cal.id)}
-                class="flex items-center gap-1 px-1 py-0.5 text-xs hover:bg-gray-100 rounded cursor-pointer"
+                class="flex items-center gap-0.5 px-0.5 text-[10px] hover:bg-gray-100 rounded cursor-pointer"
                 title={cal.name}
               >
                 <span
-                  class={`w-3 h-3 border rounded flex-shrink-0 flex items-center justify-center text-[8px] ${
+                  class={`w-2 h-2 rounded-sm flex-shrink-0 ${
                     !cal.hidden
-                      ? "border-transparent text-white"
-                      : "border-gray-300 bg-white"
+                      ? ""
+                      : "border border-gray-300 bg-white"
                   }`}
                   style={!cal.hidden ? `background-color: ${cal.color}` : ""}
-                >
-                  {!cal.hidden && "✓"}
-                </span>
+                />
                 <span
-                  class={`truncate ${cal.hidden ? "text-gray-400" : "text-gray-700"}`}
+                  class={`truncate max-w-[80px] ${cal.hidden ? "text-gray-400 line-through" : "text-gray-700"}`}
                 >
                   {cal.name}
                 </span>
-                <span class="text-gray-400 flex-shrink-0">({cal.eventCount})</span>
+                <span class="text-gray-400 flex-shrink-0">{cal.eventCount}</span>
               </a>
             ))}
           </div>
@@ -186,19 +183,19 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
 
         {/* Hidden events indicator */}
         {hiddenEventCount > 0 && (
-          <span class="flex items-center gap-1 ml-2 pl-2 border-l border-gray-200 text-xs text-gray-500">
+          <span class="flex items-center gap-0.5 ml-1 pl-1 border-l border-gray-200 text-[10px] text-gray-500">
             <span class="text-red-400">×</span>
-            <span>{hiddenEventCount} hidden</span>
+            <span>{hiddenEventCount}</span>
           </span>
         )}
       </div>
-      <div class="flex items-center gap-4 text-sm text-gray-600">
-        <a href="/refresh" class="text-gray-500 hover:text-gray-700" title="Refresh calendar data">
+      <div class="flex items-center gap-2 text-xs text-gray-600">
+        <a href="/refresh" class="text-gray-400 hover:text-gray-700" title="Refresh">
           ↻
         </a>
-        <span>{userEmail}</span>
+        <span class="text-gray-400 truncate max-w-[120px]">{userEmail}</span>
         <a href="/signout" class="text-blue-600 hover:underline">
-          Sign out
+          Out
         </a>
       </div>
     </header>
