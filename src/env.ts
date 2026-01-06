@@ -29,3 +29,11 @@ export interface GoogleCalendar {
   summary: string;
   backgroundColor?: string;
 }
+
+export interface CalendarInfo {
+  id: string;
+  name: string;
+  color: string;
+  eventCount: number;
+  hidden: boolean;
+}

@@ -1,6 +1,54 @@
 import type { CalendarEvent, GoogleCalendar } from "../env";
 import { googleCalendarListSchema } from "./validators";
 
+// Special Google system calendars that don't appear in calendarList
+const SPECIAL_CALENDARS = [
+  { id: "addressbook#contacts@group.v.calendar.google.com", name: "Birthdays", color: "#9a9cff" },
+  { id: "en.usa#holiday@group.v.calendar.google.com", name: "Holidays in United States", color: "#4caf50" },
+];
+
+// Virtual calendar for company holidays
+const COMPANY_HOLIDAYS_ID = "virtual:company-holidays";
+const COMPANY_HOLIDAYS_COLOR = "#e91e63";
+
+const COMPANY_HOLIDAYS: Record<number, Array<{ date: string; name: string }>> = {
+  2025: [
+    { date: "2025-01-01", name: "New Year's Day" },
+    { date: "2025-01-20", name: "Martin Luther King Jr. Day" },
+    { date: "2025-02-17", name: "President's Day" },
+    { date: "2025-05-26", name: "Memorial Day" },
+    { date: "2025-07-04", name: "Independence Day" },
+    { date: "2025-09-01", name: "Labor Day" },
+    { date: "2025-11-27", name: "Thanksgiving" },
+    { date: "2025-11-28", name: "Day After Thanksgiving" },
+    { date: "2025-12-25", name: "Christmas" },
+  ],
+  2026: [
+    { date: "2026-01-01", name: "New Year's Day" },
+    { date: "2026-01-19", name: "Martin Luther King Jr. Day" },
+    { date: "2026-02-16", name: "President's Day" },
+    { date: "2026-05-25", name: "Memorial Day" },
+    { date: "2026-07-03", name: "Independence Day (observed)" },
+    { date: "2026-09-07", name: "Labor Day" },
+    { date: "2026-11-26", name: "Thanksgiving" },
+    { date: "2026-11-27", name: "Day After Thanksgiving" },
+    { date: "2026-12-25", name: "Christmas" },
+  ],
+};
+
+function getCompanyHolidayEvents(year: number): CalendarEvent[] {
+  const holidays = COMPANY_HOLIDAYS[year] || [];
+  return holidays.map((h, i) => ({
+    id: `company-holiday-${year}-${i}`,
+    summary: h.name,
+    start: h.date,
+    end: h.date, // Single day
+    calendarId: COMPANY_HOLIDAYS_ID,
+    calendarName: "Company Holidays",
+    color: COMPANY_HOLIDAYS_COLOR,
+  }));
+}
+
 export async function getCalendarList(
   accessToken: string
 ): Promise<GoogleCalendar[]> {
@@ -15,7 +63,41 @@ export async function getCalendarList(
   }
 
   const data = await res.json();
-  return googleCalendarListSchema.parse(data).items;
+  const calendars = googleCalendarListSchema.parse(data).items;
+
+  // Try to add special calendars that don't appear in calendarList
+  for (const special of SPECIAL_CALENDARS) {
+    const alreadyExists = calendars.some((c) => c.id === special.id);
+    if (alreadyExists) continue;
+
+    // Try to fetch calendar metadata directly
+    const specialRes = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(special.id)}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+
+    if (specialRes.ok) {
+      const cal = (await specialRes.json()) as {
+        id: string;
+        summary: string;
+        backgroundColor?: string;
+      };
+      calendars.push({
+        id: cal.id,
+        summary: cal.summary || special.name,
+        backgroundColor: cal.backgroundColor || special.color,
+      });
+    }
+  }
+
+  // Add virtual Company Holidays calendar
+  calendars.push({
+    id: COMPANY_HOLIDAYS_ID,
+    summary: "Company Holidays",
+    backgroundColor: COMPANY_HOLIDAYS_COLOR,
+  });
+
+  return calendars;
 }
 
 export async function getEvents(
@@ -28,7 +110,15 @@ export async function getEvents(
 
   const events: CalendarEvent[] = [];
 
+  // Add company holidays (virtual calendar)
+  events.push(...getCompanyHolidayEvents(year));
+
   for (const calendar of calendars) {
+    // Skip virtual calendars
+    if (calendar.id.startsWith("virtual:")) {
+      continue;
+    }
+
     const url = new URL(
       `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.id)}/events`
     );

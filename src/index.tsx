@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { Bindings, Variables, CalendarEvent } from "./env";
+import type { Bindings, Variables, CalendarEvent, CalendarInfo } from "./env";
 import { createAuth } from "./lib/auth";
 import { authMiddleware } from "./middleware/auth";
 import { getCalendarList, getEvents } from "./lib/google-calendar";
@@ -110,28 +110,60 @@ app.get("/", authMiddleware, async (c) => {
   const query = calendarQuerySchema.safeParse({
     year: c.req.query("year"),
     view: c.req.query("view"),
+    hide: c.req.query("hide"),
   });
   const year =
     query.success && query.data.year
       ? query.data.year
       : new Date().getFullYear();
   const view = query.success ? query.data.view : "continuous";
+  const hide = query.success ? query.data.hide : undefined;
 
-  let events: CalendarEvent[] = [];
+  // Parse hidden calendar IDs
+  const hiddenSet = new Set(
+    hide ? hide.split(",").map(decodeURIComponent) : []
+  );
+
+  let allEvents: CalendarEvent[] = [];
+  let calendarInfos: CalendarInfo[] = [];
 
   if (accessToken) {
     try {
       const calendars = await getCalendarList(accessToken);
-      events = await getEvents(accessToken, calendars, year);
+      allEvents = await getEvents(accessToken, calendars, year);
+
+      // Compute event counts per calendar
+      const countsByCalendar = new Map<string, number>();
+      for (const event of allEvents) {
+        const count = countsByCalendar.get(event.calendarId) || 0;
+        countsByCalendar.set(event.calendarId, count + 1);
+      }
+
+      // Build CalendarInfo array
+      calendarInfos = calendars.map((cal) => ({
+        id: cal.id,
+        name: cal.summary,
+        color: cal.backgroundColor || "#4285f4",
+        eventCount: countsByCalendar.get(cal.id) || 0,
+        hidden: hiddenSet.has(cal.id),
+      }));
     } catch (error) {
       console.error("Failed to fetch events:", error);
     }
   }
 
+  // Filter out hidden calendar events
+  const visibleEvents = allEvents.filter((e) => !hiddenSet.has(e.calendarId));
+
   return c.render(
     <div class="flex flex-col h-screen">
-      <Header year={year} view={view} userEmail={user?.email || ""} />
-      <YearCalendar year={year} events={events} view={view} />
+      <Header
+        year={year}
+        view={view}
+        calendars={calendarInfos}
+        userEmail={user?.email || ""}
+      />
+      <YearCalendar year={year} events={visibleEvents} view={view} />
     </div>
   );
 });

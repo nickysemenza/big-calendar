@@ -1,22 +1,47 @@
+import type { CalendarInfo } from "../env";
+
 interface Props {
   year: number;
   view: "continuous" | "month";
+  calendars: CalendarInfo[];
   userEmail: string;
 }
 
-export function Header({ year, view, userEmail }: Props) {
+export function Header({ year, view, calendars, userEmail }: Props) {
   const currentYear = new Date().getFullYear();
   const isMonthView = view === "month";
 
-  // Build URL preserving year param
-  const toggleUrl = `/?year=${year}&view=${isMonthView ? "continuous" : "month"}`;
+  // Build base URL params (without hide)
+  const baseParams = `year=${year}&view=${view}`;
+
+  // Build URL for toggling a calendar's visibility
+  function buildToggleUrl(calId: string): string {
+    const newHidden = calendars
+      .filter((c) => (c.id === calId ? !c.hidden : c.hidden))
+      .map((c) => c.id);
+
+    if (newHidden.length === 0) {
+      return `/?${baseParams}`;
+    }
+    return `/?${baseParams}&hide=${newHidden.map(encodeURIComponent).join(",")}`;
+  }
+
+  // Build current hide param for preserving in other links
+  const currentHideParam = calendars
+    .filter((c) => c.hidden)
+    .map((c) => encodeURIComponent(c.id))
+    .join(",");
+  const hideQuery = currentHideParam ? `&hide=${currentHideParam}` : "";
+
+  // Build URL preserving year and hide
+  const viewToggleUrl = `/?year=${year}&view=${isMonthView ? "continuous" : "month"}${hideQuery}`;
 
   return (
     <header class="flex items-center justify-between p-4 border-b shrink-0 bg-white">
       <div class="flex items-center gap-4">
         <div class="flex items-center gap-2">
           <a
-            href={`/?year=${year - 1}&view=${view}`}
+            href={`/?year=${year - 1}&view=${view}${hideQuery}`}
             class="p-2 hover:bg-gray-100 rounded text-gray-600"
           >
             &larr;
@@ -25,7 +50,7 @@ export function Header({ year, view, userEmail }: Props) {
             {year}
           </h1>
           <a
-            href={`/?year=${year + 1}&view=${view}`}
+            href={`/?year=${year + 1}&view=${view}${hideQuery}`}
             class="p-2 hover:bg-gray-100 rounded text-gray-600"
           >
             &rarr;
@@ -33,14 +58,14 @@ export function Header({ year, view, userEmail }: Props) {
         </div>
         {year !== currentYear && (
           <a
-            href={`/?view=${view}`}
+            href={`/?view=${view}${hideQuery}`}
             class="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded"
           >
             Today
           </a>
         )}
         <a
-          href={toggleUrl}
+          href={viewToggleUrl}
           class="flex items-center gap-2 px-3 py-1 text-sm hover:bg-gray-100 rounded cursor-pointer"
         >
           <span
@@ -54,6 +79,40 @@ export function Header({ year, view, userEmail }: Props) {
           </span>
           <span class="text-gray-700">Month rows</span>
         </a>
+
+        {/* Calendar filters */}
+        {calendars.filter((c) => c.eventCount > 0).length > 0 && (
+          <div
+            class="grid gap-x-4 gap-y-0.5 ml-2 pl-4 border-l border-gray-200"
+            style="grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); grid-auto-rows: auto; max-width: 600px;"
+          >
+            {calendars.filter((c) => c.eventCount > 0).map((cal) => (
+              <a
+                key={cal.id}
+                href={buildToggleUrl(cal.id)}
+                class="flex items-center gap-1 px-1 py-0.5 text-xs hover:bg-gray-100 rounded cursor-pointer"
+                title={cal.name}
+              >
+                <span
+                  class={`w-3 h-3 border rounded flex-shrink-0 flex items-center justify-center text-[8px] ${
+                    !cal.hidden
+                      ? "border-transparent text-white"
+                      : "border-gray-300 bg-white"
+                  }`}
+                  style={!cal.hidden ? `background-color: ${cal.color}` : ""}
+                >
+                  {!cal.hidden && "✓"}
+                </span>
+                <span
+                  class={`truncate ${cal.hidden ? "text-gray-400" : "text-gray-700"}`}
+                >
+                  {cal.name}
+                </span>
+                <span class="text-gray-400 flex-shrink-0">({cal.eventCount})</span>
+              </a>
+            ))}
+          </div>
+        )}
       </div>
       <div class="flex items-center gap-4 text-sm text-gray-600">
         <span>{userEmail}</span>
