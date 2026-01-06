@@ -5,14 +5,16 @@ interface Props {
   view: "continuous" | "month";
   calendars: CalendarInfo[];
   userEmail: string;
+  showTimed: boolean;
 }
 
-export function Header({ year, view, calendars, userEmail }: Props) {
+export function Header({ year, view, calendars, userEmail, showTimed }: Props) {
   const currentYear = new Date().getFullYear();
   const isMonthView = view === "month";
 
   // Build base URL params (without hide)
-  const baseParams = `year=${year}&view=${view}`;
+  const timedParam = showTimed ? "&timed=true" : "";
+  const baseParams = `year=${year}&view=${view}${timedParam}`;
 
   // Build URL for toggling a calendar's visibility
   function buildToggleUrl(calId: string): string {
@@ -34,7 +36,8 @@ export function Header({ year, view, calendars, userEmail }: Props) {
   const hideQuery = currentHideParam ? `&hide=${currentHideParam}` : "";
 
   // Build URL preserving year and hide
-  const viewToggleUrl = `/?year=${year}&view=${isMonthView ? "continuous" : "month"}${hideQuery}`;
+  const viewToggleUrl = `/?year=${year}&view=${isMonthView ? "continuous" : "month"}${timedParam}${hideQuery}`;
+  const timedToggleUrl = `/?year=${year}&view=${view}${showTimed ? "" : "&timed=true"}${hideQuery}`;
 
   return (
     <header class="flex items-center justify-between px-4 py-2 border-b shrink-0 bg-white">
@@ -78,6 +81,21 @@ export function Header({ year, view, calendars, userEmail }: Props) {
             {isMonthView && "✓"}
           </span>
           <span class="text-gray-700">Month rows</span>
+        </a>
+        <a
+          href={timedToggleUrl}
+          class="flex items-center gap-2 px-3 py-1 text-sm hover:bg-gray-100 rounded cursor-pointer"
+        >
+          <span
+            class={`w-4 h-4 border rounded flex items-center justify-center ${
+              showTimed
+                ? "bg-blue-600 border-blue-600 text-white"
+                : "border-gray-400"
+            }`}
+          >
+            {showTimed && "✓"}
+          </span>
+          <span class="text-gray-700">Timed events</span>
         </a>
 
         {/* Calendar filters */}

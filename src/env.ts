@@ -22,6 +22,7 @@ export interface CalendarEvent {
   calendarId: string;
   calendarName: string;
   color: string;
+  isAllDay: boolean;
 }
 
 export interface GoogleCalendar {

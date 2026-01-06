@@ -47,3 +47,15 @@ export function getDayAbbrev(date: Date): string {
 export function getMonthAbbrev(date: Date): string {
   return MONTH_ABBREVS[date.getMonth()];
 }
+
+/** Extract YYYY-MM-DD from ISO datetime string, or return as-is if already a date */
+export function toDateString(dateOrDateTime: string): string {
+  return dateOrDateTime.split("T")[0];
+}
+
+/** Add days to a YYYY-MM-DD string and return new YYYY-MM-DD */
+export function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return formatDate(d);
+}

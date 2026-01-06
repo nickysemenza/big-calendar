@@ -72,6 +72,7 @@ function ContinuousGrid({
           const isFirstOfMonth = dayNum === 1;
           const dayOfWeek = day.getDay();
           const monthAbbrev = getMonthAbbrev(day);
+          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
           const isOddMonth = day.getMonth() % 2 === 1;
 
           const row = Math.floor(idx / COLS);
@@ -79,12 +80,17 @@ function ContinuousGrid({
           const rowSegments = segmentsByRow.get(row) || [];
           const cellSegments = rowSegments.filter((s) => s.colStart === col);
 
+          // Background: weekends get cream, otherwise alternate gray/white by month
+          const bgClass = isWeekend
+            ? "bg-amber-50"
+            : isOddMonth
+              ? "bg-gray-50"
+              : "bg-white";
+
           return (
             <div
               key={dateStr}
-              class={`relative p-0.5 min-h-0 ${
-                isOddMonth ? "bg-gray-50" : "bg-white"
-              } ${isToday ? "ring-2 ring-blue-500 ring-inset z-10" : ""}`}
+              class={`relative p-0.5 min-h-0 ${bgClass} ${isToday ? "ring-2 ring-orange-400 ring-inset z-10" : ""}`}
             >
               <div class="flex items-baseline gap-0.5 text-[9px] leading-none">
                 {isFirstOfMonth && (
@@ -94,7 +100,7 @@ function ContinuousGrid({
                 <span
                   class={`font-medium ${
                     isToday
-                      ? "text-blue-600 font-bold"
+                      ? "text-orange-500 font-bold"
                       : isFirstOfMonth
                         ? "text-orange-600 font-bold"
                         : "text-gray-600"
@@ -123,6 +129,7 @@ function ContinuousGrid({
                       width: calc(${span * 100}% - 4px);
                       z-index: ${20 + slot};
                       ${!isMultiDay ? "display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;" : ""}
+                      ${!seg.event.isAllDay ? "opacity: 0.7;" : ""}
                     `}
                     title={`${seg.event.summary}\n📅 ${seg.event.calendarName}`}
                   >
@@ -203,23 +210,27 @@ function MonthRowGrid({
                 const dateStr = day ? formatDate(day) : null;
                 const isToday = dateStr === today;
                 const isEmpty = !day;
+                const isWeekend = day ? (day.getDay() === 0 || day.getDay() === 6) : false;
                 const cellSegments = rowSegments.filter(
                   (s) => s.colStart === dayIdx
                 );
 
+                // Background: empty cells are gray-100, weekends get cream, otherwise alternate
+                const bgClass = isEmpty
+                  ? "bg-gray-100"
+                  : isWeekend
+                    ? "bg-amber-50"
+                    : isOddMonth
+                      ? "bg-gray-50"
+                      : "bg-white";
+
                 return (
                   <div
                     key={`${m.monthIdx}-${dayIdx}`}
-                    class={`relative p-0.5 min-h-0 ${
-                      isEmpty
-                        ? "bg-gray-100"
-                        : isOddMonth
-                          ? "bg-gray-50"
-                          : "bg-white"
-                    } ${isToday ? "ring-2 ring-blue-500 ring-inset z-10" : ""}`}
+                    class={`relative p-0.5 min-h-0 ${bgClass} ${isToday ? "ring-2 ring-orange-400 ring-inset z-10" : ""}`}
                   >
                     {day && (
-                      <div class="text-[9px] leading-none text-gray-600">
+                      <div class={`text-[9px] leading-none ${isToday ? "text-orange-500 font-bold" : "text-gray-600"}`}>
                         {day.getDate()}
                       </div>
                     )}
@@ -243,6 +254,7 @@ function MonthRowGrid({
                             width: calc(${span * 100}% - 4px);
                             z-index: ${20 + slot};
                             ${!isMultiDay ? "display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;" : ""}
+                            ${!seg.event.isAllDay ? "opacity: 0.7;" : ""}
                           `}
                           title={`${seg.event.summary}\n📅 ${seg.event.calendarName}`}
                         >

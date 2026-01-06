@@ -1,5 +1,6 @@
 import type { CalendarEvent, GoogleCalendar } from "../env";
 import { googleCalendarListSchema } from "./validators";
+import { toDateString, addDays } from "./dates";
 
 // Special Google system calendars that don't appear in calendarList
 const SPECIAL_CALENDARS = [
@@ -38,23 +39,16 @@ const COMPANY_HOLIDAYS: Record<number, Array<{ date: string; name: string }>> = 
 
 function getCompanyHolidayEvents(year: number): CalendarEvent[] {
   const holidays = COMPANY_HOLIDAYS[year] || [];
-  return holidays.map((h, i) => {
-    // End date is exclusive, so add 1 day for single-day events
-    const startDate = new Date(h.date);
-    const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + 1);
-    const endStr = endDate.toISOString().split("T")[0];
-
-    return {
-      id: `company-holiday-${year}-${i}`,
-      summary: h.name,
-      start: h.date,
-      end: endStr,
-      calendarId: COMPANY_HOLIDAYS_ID,
-      calendarName: "Company Holidays",
-      color: COMPANY_HOLIDAYS_COLOR,
-    };
-  });
+  return holidays.map((h, i) => ({
+    id: `company-holiday-${year}-${i}`,
+    summary: h.name,
+    start: h.date,
+    end: addDays(h.date, 1), // End date is exclusive
+    calendarId: COMPANY_HOLIDAYS_ID,
+    calendarName: "Company Holidays",
+    color: COMPANY_HOLIDAYS_COLOR,
+    isAllDay: true,
+  }));
 }
 
 export async function getCalendarList(
@@ -111,7 +105,8 @@ export async function getCalendarList(
 export async function getEvents(
   accessToken: string,
   calendars: GoogleCalendar[],
-  year: number
+  year: number,
+  includeTimed: boolean = false
 ): Promise<CalendarEvent[]> {
   const timeMin = `${year}-01-01T00:00:00Z`;
   const timeMax = `${year}-12-31T23:59:59Z`;
@@ -149,12 +144,12 @@ export async function getEvents(
         id: string;
         summary?: string;
         start?: { date?: string; dateTime?: string };
-        end?: { date?: string };
+        end?: { date?: string; dateTime?: string };
       }>;
     };
 
-    // All-day events only (have start.date, not start.dateTime)
     for (const item of data.items || []) {
+      // All-day events (have start.date)
       if (item.start?.date) {
         events.push({
           id: item.id,
@@ -164,6 +159,22 @@ export async function getEvents(
           calendarId: calendar.id,
           calendarName: calendar.summary,
           color: calendar.backgroundColor || "#4285f4",
+          isAllDay: true,
+        });
+      }
+      // Timed events (have start.dateTime)
+      else if (includeTimed && item.start?.dateTime) {
+        const startDate = toDateString(item.start.dateTime);
+        const endDate = item.end?.dateTime ? toDateString(item.end.dateTime) : startDate;
+        events.push({
+          id: item.id,
+          summary: item.summary || "(No title)",
+          start: startDate,
+          end: endDate === startDate ? addDays(startDate, 1) : endDate,
+          calendarId: calendar.id,
+          calendarName: calendar.summary,
+          color: calendar.backgroundColor || "#4285f4",
+          isAllDay: false,
         });
       }
     }

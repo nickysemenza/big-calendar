@@ -111,6 +111,7 @@ app.get("/", authMiddleware, async (c) => {
     year: c.req.query("year"),
     view: c.req.query("view"),
     hide: c.req.query("hide"),
+    timed: c.req.query("timed"),
   });
   const year =
     query.success && query.data.year
@@ -118,6 +119,7 @@ app.get("/", authMiddleware, async (c) => {
       : new Date().getFullYear();
   const view = query.success ? query.data.view : "continuous";
   const hide = query.success ? query.data.hide : undefined;
+  const showTimed = query.success ? query.data.timed : false;
 
   // Parse hidden calendar IDs
   const hiddenSet = new Set(
@@ -130,7 +132,7 @@ app.get("/", authMiddleware, async (c) => {
   if (accessToken) {
     try {
       const calendars = await getCalendarList(accessToken);
-      allEvents = await getEvents(accessToken, calendars, year);
+      allEvents = await getEvents(accessToken, calendars, year, showTimed);
 
       // Compute event counts per calendar
       const countsByCalendar = new Map<string, number>();
@@ -162,6 +164,7 @@ app.get("/", authMiddleware, async (c) => {
         view={view}
         calendars={calendarInfos}
         userEmail={user?.email || ""}
+        showTimed={showTimed}
       />
       <YearCalendar year={year} events={visibleEvents} view={view} />
     </div>
