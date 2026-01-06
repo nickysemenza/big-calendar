@@ -37,7 +37,7 @@ export function Header({ year, view, calendars, userEmail }: Props) {
   const viewToggleUrl = `/?year=${year}&view=${isMonthView ? "continuous" : "month"}${hideQuery}`;
 
   return (
-    <header class="flex items-center justify-between p-4 border-b shrink-0 bg-white">
+    <header class="flex items-center justify-between px-4 py-2 border-b shrink-0 bg-white">
       <div class="flex items-center gap-4">
         <div class="flex items-center gap-2">
           <a

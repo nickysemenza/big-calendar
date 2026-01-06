@@ -108,10 +108,13 @@ function ContinuousGrid({
                 const span = seg.colEnd - seg.colStart;
                 const slot = segmentSlots.get(seg) || 0;
 
+                const isMultiDay = span > 1;
                 return (
                   <div
                     key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
-                    class="text-[8px] truncate rounded-sm px-0.5 text-white leading-tight whitespace-nowrap overflow-hidden pointer-events-auto"
+                    class={`text-[8px] rounded-sm px-0.5 text-white leading-tight pointer-events-auto ${
+                      isMultiDay ? "truncate" : "overflow-hidden break-words"
+                    }`}
                     style={`
                       background-color: ${seg.event.color};
                       position: absolute;
@@ -119,6 +122,7 @@ function ContinuousGrid({
                       top: ${14 + slot * 11}px;
                       width: calc(${span * 100}% - 4px);
                       z-index: ${20 + slot};
+                      ${!isMultiDay ? "display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;" : ""}
                     `}
                     title={`${seg.event.summary}\n📅 ${seg.event.calendarName}`}
                   >
@@ -223,11 +227,14 @@ function MonthRowGrid({
                     {cellSegments.map((seg, segIdx) => {
                       const span = seg.colEnd - seg.colStart;
                       const slot = segmentSlots.get(seg) || 0;
+                      const isMultiDay = span > 1;
 
                       return (
                         <div
                           key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
-                          class="text-[8px] truncate rounded-sm px-0.5 text-white leading-tight whitespace-nowrap overflow-hidden pointer-events-auto"
+                          class={`text-[8px] rounded-sm px-0.5 text-white leading-tight pointer-events-auto ${
+                            isMultiDay ? "truncate" : "overflow-hidden break-words"
+                          }`}
                           style={`
                             background-color: ${seg.event.color};
                             position: absolute;
@@ -235,6 +242,7 @@ function MonthRowGrid({
                             top: ${12 + slot * 11}px;
                             width: calc(${span * 100}% - 4px);
                             z-index: ${20 + slot};
+                            ${!isMultiDay ? "display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;" : ""}
                           `}
                           title={`${seg.event.summary}\n📅 ${seg.event.calendarName}`}
                         >

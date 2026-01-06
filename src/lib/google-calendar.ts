@@ -38,15 +38,23 @@ const COMPANY_HOLIDAYS: Record<number, Array<{ date: string; name: string }>> = 
 
 function getCompanyHolidayEvents(year: number): CalendarEvent[] {
   const holidays = COMPANY_HOLIDAYS[year] || [];
-  return holidays.map((h, i) => ({
-    id: `company-holiday-${year}-${i}`,
-    summary: h.name,
-    start: h.date,
-    end: h.date, // Single day
-    calendarId: COMPANY_HOLIDAYS_ID,
-    calendarName: "Company Holidays",
-    color: COMPANY_HOLIDAYS_COLOR,
-  }));
+  return holidays.map((h, i) => {
+    // End date is exclusive, so add 1 day for single-day events
+    const startDate = new Date(h.date);
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 1);
+    const endStr = endDate.toISOString().split("T")[0];
+
+    return {
+      id: `company-holiday-${year}-${i}`,
+      summary: h.name,
+      start: h.date,
+      end: endStr,
+      calendarId: COMPANY_HOLIDAYS_ID,
+      calendarName: "Company Holidays",
+      color: COMPANY_HOLIDAYS_COLOR,
+    };
+  });
 }
 
 export async function getCalendarList(
