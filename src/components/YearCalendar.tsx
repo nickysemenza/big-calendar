@@ -6,6 +6,60 @@ import {
   getDaysInMonth,
 } from "../lib/dates";
 
+// Consolidated event - same name + same start/end = one event with multiple colors
+interface ConsolidatedCalendarEvent {
+  id: string;
+  summary: string;
+  start: string;
+  end: string;
+  colors: string[];
+  calendarNames: string[];
+  isAllDay: boolean;
+  isRecurring: boolean;
+}
+
+// Consolidate events with same name AND same start/end into one
+function consolidateCalendarEvents(events: CalendarEvent[]): ConsolidatedCalendarEvent[] {
+  const byKey = new Map<string, CalendarEvent[]>();
+
+  for (const event of events) {
+    // Key by normalized name + exact dates
+    const key = `${event.summary.toLowerCase().trim()}|${event.start}|${event.end}`;
+    if (!byKey.has(key)) {
+      byKey.set(key, []);
+    }
+    byKey.get(key)!.push(event);
+  }
+
+  const result: ConsolidatedCalendarEvent[] = [];
+  for (const [, group] of byKey) {
+    const colorSet = new Set<string>();
+    const calendarSet = new Set<string>();
+    let isAllDay = true;
+    let isRecurring = false;
+
+    for (const event of group) {
+      colorSet.add(event.color);
+      calendarSet.add(event.calendarName);
+      if (!event.isAllDay) isAllDay = false;
+      if (event.isRecurring) isRecurring = true;
+    }
+
+    result.push({
+      id: group[0].id,
+      summary: group[0].summary,
+      start: group[0].start,
+      end: group[0].end,
+      colors: [...colorSet],
+      calendarNames: [...calendarSet],
+      isAllDay,
+      isRecurring,
+    });
+  }
+
+  return result;
+}
+
 interface Props {
   year: number;
   events: CalendarEvent[];
@@ -18,8 +72,126 @@ const MONTH_ABBREVS = [
   "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
 ];
 
+// Row height constants
+const MIN_ROW_HEIGHT = 32;
+const HEADER_HEIGHT = 14;
+const EVENT_HEIGHT = 11;
+
+// Helper to get events for a specific date
+function getEventsForDate(events: CalendarEvent[], dateStr: string): CalendarEvent[] {
+  return events.filter((event) => {
+    return event.start <= dateStr && event.end > dateStr;
+  });
+}
+
+// Consolidated event with potentially multiple colors (for popup display)
+interface ConsolidatedEvent {
+  id: string;
+  summary: string;
+  start: string;
+  end: string;
+  colors: string[];
+  calendarNames: string[];
+  isAllDay: boolean;
+  isRecurring: boolean;
+}
+
+// Consolidate events with the same name into one with multiple colors (for popup)
+function consolidateEvents(events: CalendarEvent[]): ConsolidatedEvent[] {
+  const byName = new Map<string, CalendarEvent[]>();
+
+  for (const event of events) {
+    const key = event.summary.toLowerCase().trim();
+    if (!byName.has(key)) {
+      byName.set(key, []);
+    }
+    byName.get(key)!.push(event);
+  }
+
+  const result: ConsolidatedEvent[] = [];
+  for (const [, group] of byName) {
+    // Get unique colors
+    const colorSet = new Set<string>();
+    const calendarSet = new Set<string>();
+    let isAllDay = true;
+    let isRecurring = false;
+
+    for (const event of group) {
+      colorSet.add(event.color);
+      calendarSet.add(event.calendarName);
+      if (!event.isAllDay) isAllDay = false;
+      if (event.isRecurring) isRecurring = true;
+    }
+
+    result.push({
+      id: group[0].id,
+      summary: group[0].summary,
+      start: group[0].start,
+      end: group[0].end,
+      colors: [...colorSet],
+      calendarNames: [...calendarSet],
+      isAllDay,
+      isRecurring,
+    });
+  }
+
+  return result;
+}
+
+// Format date range for display (e.g., "May 1 - May 7")
+function formatDateRange(start: string, end: string): string | null {
+  const startDate = new Date(start + "T00:00:00");
+  const endDate = new Date(end + "T00:00:00");
+  endDate.setDate(endDate.getDate() - 1); // end is exclusive
+
+  // If same day, no range to show
+  if (start === end || startDate.getTime() === endDate.getTime()) {
+    return null;
+  }
+
+  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+  const startStr = startDate.toLocaleDateString("en-US", opts);
+  const endStr = endDate.toLocaleDateString("en-US", opts);
+
+  return `${startStr} – ${endStr}`;
+}
+
+// Generate CSS background for multi-color events
+function getStripedBackground(colors: string[]): string {
+  if (colors.length === 1) {
+    return colors[0];
+  }
+
+  // Bold diagonal stripes
+  const stripeWidth = 8; // pixels per color band
+  const stops = colors.flatMap((color, i) => {
+    const start = i * stripeWidth;
+    const end = (i + 1) * stripeWidth;
+    return [`${color} ${start}px`, `${color} ${end}px`];
+  });
+
+  return `repeating-linear-gradient(135deg, ${stops.join(", ")})`;
+}
+
+function computeRowHeights(
+  maxSlotPerRow: Map<number, number>,
+  rowCount: number
+): string {
+  const heights: string[] = [];
+  for (let row = 0; row < rowCount; row++) {
+    const maxSlot = maxSlotPerRow.get(row) ?? -1;
+    const minHeight = Math.max(
+      MIN_ROW_HEIGHT,
+      HEADER_HEIGHT + (maxSlot + 1) * EVENT_HEIGHT + 4
+    );
+    // Use minmax so rows fill available space but respect minimum for events
+    heights.push(`minmax(${minHeight}px, 1fr)`);
+  }
+  return heights.join(" ");
+}
+
 interface EventSegment {
-  event: CalendarEvent;
+  event: ConsolidatedCalendarEvent;
   rowStart: number;
   colStart: number;
   colEnd: number; // exclusive
@@ -45,6 +217,9 @@ function ContinuousGrid({
   const allDays = getAllDaysOfYear(year);
   const today = formatDate(new Date());
 
+  // Consolidate duplicate events (same name + same dates)
+  const consolidatedEvents = consolidateCalendarEvents(events);
+
   // Create a map of date string -> cell index for quick lookup
   const dateToIndex = new Map<string, number>();
   allDays.forEach((day, i) => {
@@ -52,18 +227,19 @@ function ContinuousGrid({
   });
 
   const totalCells = allDays.length;
-  const { segmentsByRow, segmentSlots } = computeEventSegments(
-    events,
+  const rowCount = Math.ceil(totalCells / COLS);
+  const { segmentsByRow, segmentSlots, maxSlotPerRow } = computeEventSegments(
+    consolidatedEvents,
     dateToIndex,
     totalCells,
     COLS
   );
 
   return (
-    <div class="flex-1 bg-white p-2 overflow-hidden">
+    <div class="flex-1 bg-white p-2 overflow-auto">
       <div
         class="grid gap-px bg-gray-200 h-full"
-        style={`grid-template-columns: repeat(${COLS}, 1fr);`}
+        style={`grid-template-columns: repeat(${COLS}, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, rowCount)};`}
       >
         {allDays.map((day, idx) => {
           const dateStr = formatDate(day);
@@ -79,6 +255,7 @@ function ContinuousGrid({
           const col = idx % COLS;
           const rowSegments = segmentsByRow.get(row) || [];
           const cellSegments = rowSegments.filter((s) => s.colStart === col);
+          const dayEvents = consolidateEvents(getEventsForDate(events, dateStr));
 
           // Background: weekends get cream, otherwise alternate gray/white by month
           const bgClass = isWeekend
@@ -90,7 +267,7 @@ function ContinuousGrid({
           return (
             <div
               key={dateStr}
-              class={`relative p-0.5 min-h-0 ${bgClass} ${isToday ? "ring-2 ring-orange-400 ring-inset z-10" : ""}`}
+              class={`group relative p-0.5 min-h-0 ${bgClass} ${isToday ? "ring-2 ring-orange-400 ring-inset z-10" : ""}`}
             >
               <div class="flex items-baseline gap-0.5 text-[9px] leading-none">
                 {isFirstOfMonth && (
@@ -122,7 +299,7 @@ function ContinuousGrid({
                       isMultiDay ? "truncate" : "overflow-hidden break-words"
                     }`}
                     style={`
-                      background-color: ${seg.event.color};
+                      background: ${getStripedBackground(seg.event.colors)};
                       position: absolute;
                       left: 2px;
                       top: ${14 + slot * 11}px;
@@ -131,12 +308,45 @@ function ContinuousGrid({
                       ${!isMultiDay ? "display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;" : ""}
                       ${!seg.event.isAllDay ? "opacity: 0.7;" : ""}
                     `}
-                    title={`${seg.event.summary}\n📅 ${seg.event.calendarName}`}
                   >
-                    {seg.event.summary}
+                    {seg.event.isRecurring && <span class="absolute top-0 right-0.5 opacity-50 text-[8px]">↻</span>}{seg.event.summary}
                   </div>
                 );
               })}
+
+              {/* Hover popup */}
+              {dayEvents.length > 0 && (
+                <div class="hidden group-hover:block absolute z-[100] left-full top-0 ml-1 bg-white rounded-lg shadow-lg border border-gray-200 p-2 min-w-[180px] max-h-[250px] overflow-auto">
+                  <div class="font-semibold text-xs mb-1 pb-1 border-b border-gray-100 text-gray-700">
+                    {monthAbbrev} {dayNum} &middot; {dayEvents.length} event{dayEvents.length !== 1 ? "s" : ""}
+                  </div>
+                  <div class="space-y-0.5">
+                    {dayEvents.map((event) => {
+                      const dateRange = formatDateRange(event.start, event.end);
+                      return (
+                        <div key={event.id} class="flex items-start gap-1.5 py-0.5 text-xs">
+                          <span
+                            class="w-2 h-2 rounded-full flex-shrink-0 mt-0.5"
+                            style={`background: ${getStripedBackground(event.colors)};`}
+                          />
+                          <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-1">
+                              <span class="text-gray-800 leading-tight">{event.summary}</span>
+                              {event.isRecurring && <span class="text-gray-400" title="Recurring">↻</span>}
+                            </div>
+                            {dateRange && (
+                              <div class="text-[10px] text-gray-400">{dateRange}</div>
+                            )}
+                            {event.colors.length > 1 && (
+                              <div class="text-[10px] text-gray-400">{event.calendarNames.join(", ")}</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
@@ -156,6 +366,9 @@ function MonthRowGrid({
 }) {
   const today = formatDate(new Date());
   const COLS = 31;
+
+  // Consolidate duplicate events (same name + same dates)
+  const consolidatedEvents = consolidateCalendarEvents(events);
 
   // Build month data
   const months = Array.from({ length: 12 }, (_, monthIdx) => {
@@ -178,16 +391,16 @@ function MonthRowGrid({
   });
 
   // Compute event segments for month view
-  const { segmentsByRow, segmentSlots } = computeMonthEventSegments(
-    events,
+  const { segmentsByRow, segmentSlots, maxSlotPerRow } = computeMonthEventSegments(
+    consolidatedEvents,
     dateToPos,
     year,
     COLS
   );
 
   return (
-    <div class="flex-1 bg-white p-2 overflow-hidden">
-      <div class="grid h-full" style="grid-template-columns: 40px repeat(31, 1fr); grid-template-rows: repeat(12, 1fr); gap: 1px; background: #e5e7eb;">
+    <div class="flex-1 bg-white p-2 overflow-auto">
+      <div class="grid h-full" style={`grid-template-columns: 40px repeat(31, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, 12)}; gap: 1px; background: #e5e7eb;`}>
         {months.map((m) => {
           const isOddMonth = m.monthIdx % 2 === 1;
           const rowSegments = segmentsByRow.get(m.monthIdx) || [];
@@ -214,6 +427,7 @@ function MonthRowGrid({
                 const cellSegments = rowSegments.filter(
                   (s) => s.colStart === dayIdx
                 );
+                const dayEvents = dateStr ? consolidateEvents(getEventsForDate(events, dateStr)) : [];
 
                 // Background: empty cells are gray-100, weekends get cream, otherwise alternate
                 const bgClass = isEmpty
@@ -227,7 +441,7 @@ function MonthRowGrid({
                 return (
                   <div
                     key={`${m.monthIdx}-${dayIdx}`}
-                    class={`relative p-0.5 min-h-0 ${bgClass} ${isToday ? "ring-2 ring-orange-400 ring-inset z-10" : ""}`}
+                    class={`group relative p-0.5 min-h-0 ${bgClass} ${isToday ? "ring-2 ring-orange-400 ring-inset z-10" : ""}`}
                   >
                     {day && (
                       <div class={`text-[9px] leading-none ${isToday ? "text-orange-500 font-bold" : "text-gray-600"}`}>
@@ -247,7 +461,7 @@ function MonthRowGrid({
                             isMultiDay ? "truncate" : "overflow-hidden break-words"
                           }`}
                           style={`
-                            background-color: ${seg.event.color};
+                            background: ${getStripedBackground(seg.event.colors)};
                             position: absolute;
                             left: 2px;
                             top: ${12 + slot * 11}px;
@@ -256,12 +470,45 @@ function MonthRowGrid({
                             ${!isMultiDay ? "display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;" : ""}
                             ${!seg.event.isAllDay ? "opacity: 0.7;" : ""}
                           `}
-                          title={`${seg.event.summary}\n📅 ${seg.event.calendarName}`}
                         >
-                          {seg.event.summary}
+                          {seg.event.isRecurring && <span class="absolute top-0 right-0.5 opacity-50 text-[8px]">↻</span>}{seg.event.summary}
                         </div>
                       );
                     })}
+
+                    {/* Hover popup */}
+                    {dayEvents.length > 0 && (
+                      <div class="hidden group-hover:block absolute z-[100] left-full top-0 ml-1 bg-white rounded-lg shadow-lg border border-gray-200 p-2 min-w-[180px] max-h-[250px] overflow-auto">
+                        <div class="font-semibold text-xs mb-1 pb-1 border-b border-gray-100 text-gray-700">
+                          {m.abbrev} {day?.getDate()} &middot; {dayEvents.length} event{dayEvents.length !== 1 ? "s" : ""}
+                        </div>
+                        <div class="space-y-0.5">
+                          {dayEvents.map((event) => {
+                            const dateRange = formatDateRange(event.start, event.end);
+                            return (
+                              <div key={event.id} class="flex items-start gap-1.5 py-0.5 text-xs">
+                                <span
+                                  class="w-2 h-2 rounded-full flex-shrink-0 mt-0.5"
+                                  style={`background: ${getStripedBackground(event.colors)};`}
+                                />
+                                <div class="min-w-0 flex-1">
+                                  <div class="flex items-center gap-1">
+                                    <span class="text-gray-800 leading-tight">{event.summary}</span>
+                                    {event.isRecurring && <span class="text-gray-400" title="Recurring">↻</span>}
+                                  </div>
+                                  {dateRange && (
+                                    <div class="text-[10px] text-gray-400">{dateRange}</div>
+                                  )}
+                                  {event.colors.length > 1 && (
+                                    <div class="text-[10px] text-gray-400">{event.calendarNames.join(", ")}</div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -276,13 +523,14 @@ function MonthRowGrid({
 // ============ SHARED HELPERS ============
 
 function computeEventSegments(
-  events: CalendarEvent[],
+  events: ConsolidatedCalendarEvent[],
   dateToIndex: Map<string, number>,
   totalCells: number,
   cols: number
 ): {
   segmentsByRow: Map<number, EventSegment[]>;
   segmentSlots: Map<EventSegment, number>;
+  maxSlotPerRow: Map<number, number>;
 } {
   const eventSegments: EventSegment[] = [];
   const firstDateStr = [...dateToIndex.keys()][0];
@@ -332,13 +580,14 @@ function computeEventSegments(
 }
 
 function computeMonthEventSegments(
-  events: CalendarEvent[],
+  events: ConsolidatedCalendarEvent[],
   dateToPos: Map<string, { row: number; col: number }>,
   year: number,
   cols: number
 ): {
   segmentsByRow: Map<number, EventSegment[]>;
   segmentSlots: Map<EventSegment, number>;
+  maxSlotPerRow: Map<number, number>;
 } {
   const eventSegments: EventSegment[] = [];
   const firstDateStr = `${year}-01-01`;
@@ -389,6 +638,7 @@ function computeMonthEventSegments(
 function assignSlots(eventSegments: EventSegment[]): {
   segmentsByRow: Map<number, EventSegment[]>;
   segmentSlots: Map<EventSegment, number>;
+  maxSlotPerRow: Map<number, number>;
 } {
   const segmentsByRow = new Map<number, EventSegment[]>();
   for (const seg of eventSegments) {
@@ -400,7 +650,9 @@ function assignSlots(eventSegments: EventSegment[]): {
   }
 
   const segmentSlots = new Map<EventSegment, number>();
-  for (const [, rowSegments] of segmentsByRow) {
+  const maxSlotPerRow = new Map<number, number>();
+
+  for (const [row, rowSegments] of segmentsByRow) {
     rowSegments.sort((a, b) => {
       if (a.colStart !== b.colStart) return a.colStart - b.colStart;
       return b.colEnd - b.colStart - (a.colEnd - a.colStart);
@@ -417,7 +669,10 @@ function assignSlots(eventSegments: EventSegment[]): {
       }
       segmentSlots.set(seg, slotIdx);
     }
+
+    // Track max slot used in this row
+    maxSlotPerRow.set(row, slots.length > 0 ? slots.length - 1 : -1);
   }
 
-  return { segmentsByRow, segmentSlots };
+  return { segmentsByRow, segmentSlots, maxSlotPerRow };
 }

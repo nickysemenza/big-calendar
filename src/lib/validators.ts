@@ -5,6 +5,7 @@ export const calendarQuerySchema = z.object({
   view: z.enum(["continuous", "month"]).optional().default("continuous"),
   hide: z.string().optional(), // comma-separated calendar IDs to hide
   timed: z.enum(["true", "false"]).optional().transform((v) => v === "true"),
+  hideRecurring: z.enum(["true", "false"]).optional().transform((v) => v === "true"),
 });
 
 export const googleCalendarListSchema = z.object({

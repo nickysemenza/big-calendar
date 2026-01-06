@@ -23,6 +23,7 @@ export interface CalendarEvent {
   calendarName: string;
   color: string;
   isAllDay: boolean;
+  isRecurring: boolean;
 }
 
 export interface GoogleCalendar {

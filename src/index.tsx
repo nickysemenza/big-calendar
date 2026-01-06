@@ -98,8 +98,23 @@ app.get("/signin", async (c) => {
 });
 
 // Sign out helper route
-app.get("/signout", (c) => {
-  return c.redirect("/api/auth/signout");
+app.get("/signout", async (c) => {
+  const auth = createAuth(c.env);
+  const request = new Request(new URL("/api/auth/sign-out", c.req.url), {
+    method: "POST",
+    headers: {
+      Cookie: c.req.header("Cookie") || "",
+    },
+  });
+  const response = await auth.handler(request);
+
+  // Create redirect with cleared session cookies
+  const redirectResponse = c.redirect("/login");
+  const setCookie = response.headers.get("Set-Cookie");
+  if (setCookie) {
+    redirectResponse.headers.set("Set-Cookie", setCookie);
+  }
+  return redirectResponse;
 });
 
 // Main calendar view (protected)
@@ -112,6 +127,7 @@ app.get("/", authMiddleware, async (c) => {
     view: c.req.query("view"),
     hide: c.req.query("hide"),
     timed: c.req.query("timed"),
+    hideRecurring: c.req.query("hideRecurring"),
   });
   const year =
     query.success && query.data.year
@@ -120,6 +136,7 @@ app.get("/", authMiddleware, async (c) => {
   const view = query.success ? query.data.view : "continuous";
   const hide = query.success ? query.data.hide : undefined;
   const showTimed = query.success ? query.data.timed : false;
+  const hideRecurring = query.success ? query.data.hideRecurring : false;
 
   // Parse hidden calendar IDs
   const hiddenSet = new Set(
@@ -154,8 +171,12 @@ app.get("/", authMiddleware, async (c) => {
     }
   }
 
-  // Filter out hidden calendar events
-  const visibleEvents = allEvents.filter((e) => !hiddenSet.has(e.calendarId));
+  // Filter out hidden calendar events and optionally recurring events
+  const visibleEvents = allEvents.filter((e) => {
+    if (hiddenSet.has(e.calendarId)) return false;
+    if (hideRecurring && e.isRecurring) return false;
+    return true;
+  });
 
   return c.render(
     <div class="flex flex-col h-screen">
@@ -165,6 +186,7 @@ app.get("/", authMiddleware, async (c) => {
         calendars={calendarInfos}
         userEmail={user?.email || ""}
         showTimed={showTimed}
+        hideRecurring={hideRecurring}
       />
       <YearCalendar year={year} events={visibleEvents} view={view} />
     </div>

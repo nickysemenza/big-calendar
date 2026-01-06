@@ -48,6 +48,7 @@ function getCompanyHolidayEvents(year: number): CalendarEvent[] {
     calendarName: "Company Holidays",
     color: COMPANY_HOLIDAYS_COLOR,
     isAllDay: true,
+    isRecurring: false,
   }));
 }
 
@@ -145,10 +146,13 @@ export async function getEvents(
         summary?: string;
         start?: { date?: string; dateTime?: string };
         end?: { date?: string; dateTime?: string };
+        recurringEventId?: string;
       }>;
     };
 
     for (const item of data.items || []) {
+      const isRecurring = !!item.recurringEventId;
+
       // All-day events (have start.date)
       if (item.start?.date) {
         events.push({
@@ -160,6 +164,7 @@ export async function getEvents(
           calendarName: calendar.summary,
           color: calendar.backgroundColor || "#4285f4",
           isAllDay: true,
+          isRecurring,
         });
       }
       // Timed events (have start.dateTime)
@@ -175,6 +180,7 @@ export async function getEvents(
           calendarName: calendar.summary,
           color: calendar.backgroundColor || "#4285f4",
           isAllDay: false,
+          isRecurring,
         });
       }
     }
