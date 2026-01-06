@@ -147,6 +147,7 @@ app.get("/", authMiddleware, async (c) => {
     hideEvents: c.req.query("hideEvents"),
     timed: c.req.query("timed"),
     hideRecurring: c.req.query("hideRecurring"),
+    wideMode: c.req.query("wideMode"),
   });
   const year =
     query.success && query.data.year
@@ -157,6 +158,7 @@ app.get("/", authMiddleware, async (c) => {
   const hideEvents = query.success ? query.data.hideEvents : undefined;
   const showTimed = query.success ? query.data.timed : false;
   const hideRecurring = query.success ? query.data.hideRecurring : false;
+  const wideMode = query.success ? query.data.wideMode : false;
 
   // Parse hidden calendar hashes from URL
   const hiddenHashes = new Set(
@@ -242,6 +244,7 @@ app.get("/", authMiddleware, async (c) => {
         userEmail={user?.email || ""}
         showTimed={showTimed}
         hideRecurring={hideRecurring}
+        wideMode={wideMode}
         hiddenEventCount={hiddenEventHashes.size}
         totalEvents={visibleEvents.length}
       />
@@ -253,6 +256,7 @@ app.get("/", authMiddleware, async (c) => {
         hideEvents={currentHideEventsParam}
         showTimed={showTimed}
         hideRecurring={hideRecurring}
+        wideMode={wideMode}
       />
     </div>
   );

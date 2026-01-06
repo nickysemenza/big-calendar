@@ -11,6 +11,7 @@ export const calendarQuerySchema = z.object({
   hideEvents: z.string().optional(), // comma-separated event name hashes to hide
   timed: z.enum(["true", "false"]).optional().transform((v) => v === "true"),
   hideRecurring: z.enum(["true", "false"]).optional().transform((v) => v === "true"),
+  wideMode: z.enum(["true", "false"]).optional().transform((v) => v === "true"),
 });
 
 export type CalendarQuery = z.infer<typeof calendarQuerySchema>;

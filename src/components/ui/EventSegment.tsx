@@ -25,6 +25,7 @@ export function EventSegment({ event, slot, span, sizes, headerOffset = 0 }: Eve
         z-index: ${20 + slot};
         ${!event.isAllDay ? "opacity: 0.7;" : ""}
       `}
+      title={`${event.summary}${event.calendarNames.length > 0 ? ` (${event.calendarNames.join(", ")})` : ""}`}
     >
       {event.isRecurring && <span class="recurring-icon">↻</span>}
       {event.summary}

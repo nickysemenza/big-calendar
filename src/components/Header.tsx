@@ -8,11 +8,12 @@ interface Props {
   userEmail: string;
   showTimed: boolean;
   hideRecurring: boolean;
+  wideMode: boolean;
   hiddenEventCount: number;
   totalEvents: number;
 }
 
-export function Header({ year, view, calendars, userEmail, showTimed, hideRecurring, hiddenEventCount, totalEvents }: Props) {
+export function Header({ year, view, calendars, userEmail, showTimed, hideRecurring, wideMode, hiddenEventCount, totalEvents }: Props) {
   const now = new Date();
   const currentYear = now.getFullYear();
 
@@ -46,6 +47,9 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
 
     const recurringValue = overrides.hideRecurring ?? hideRecurring;
     if (recurringValue) params.set("hideRecurring", "true");
+
+    const wideModeValue = overrides.wideMode ?? wideMode;
+    if (wideModeValue) params.set("wideMode", "true");
 
     const hideValue = overrides.hide ?? currentHideParam;
     if (hideValue) params.set("hide", hideValue);
@@ -120,33 +124,30 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
         </div>
         <a
           href={buildUrl({ timed: !showTimed })}
-          class="flex items-center gap-1 px-1.5 py-0.5 text-xs hover:bg-gray-100 rounded cursor-pointer"
+          class={`flex items-center gap-1 px-1.5 py-0.5 text-xs rounded cursor-pointer ${
+            showTimed ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100 text-gray-500"
+          }`}
+          title={showTimed ? "Hide hourly events" : "Show hourly events"}
         >
-          <span
-            class={`w-3 h-3 border rounded text-[8px] flex items-center justify-center ${
-              showTimed
-                ? "bg-blue-600 border-blue-600 text-white"
-                : "border-gray-400"
-            }`}
-          >
-            {showTimed && "✓"}
-          </span>
-          <span class="text-gray-700">Timed</span>
+          <span>⏰</span>
         </a>
         <a
           href={buildUrl({ hideRecurring: !hideRecurring })}
-          class="flex items-center gap-1 px-1.5 py-0.5 text-xs hover:bg-gray-100 rounded cursor-pointer"
+          class={`flex items-center gap-1 px-1.5 py-0.5 text-xs rounded cursor-pointer ${
+            hideRecurring ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100 text-gray-500"
+          }`}
+          title={hideRecurring ? "Show recurring events" : "Hide recurring events"}
         >
-          <span
-            class={`w-3 h-3 border rounded text-[8px] flex items-center justify-center ${
-              hideRecurring
-                ? "bg-blue-600 border-blue-600 text-white"
-                : "border-gray-400"
-            }`}
-          >
-            {hideRecurring && "✓"}
-          </span>
-          <span class="text-gray-700">Recurring</span>
+          <span>↻</span>
+        </a>
+        <a
+          href={buildUrl({ wideMode: !wideMode })}
+          class={`flex items-center gap-1 px-1.5 py-0.5 text-xs rounded cursor-pointer ${
+            wideMode ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100 text-gray-500"
+          }`}
+          title={wideMode ? "Normal aspect ratio" : "Wide aspect ratio"}
+        >
+          <span>↔</span>
         </a>
 
         {/* Calendar filters */}

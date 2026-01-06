@@ -9,7 +9,7 @@ import {
 } from "../lib/dates";
 import type { ConsolidatedEvent, ConsolidatedCalendarEvent, SizeConfig } from "./ui/types";
 import { EventSegment } from "./ui/EventSegment";
-import { EventPopup } from "./ui/EventPopup";
+import { DayPopover } from "./ui/DayPopover";
 
 // Responsive sizes for large monitors (≥1536px / 2xl breakpoint)
 // Uses CSS media queries for styling via Tailwind 2xl: prefix
@@ -77,6 +77,7 @@ interface Props {
   hideEvents: string;
   showTimed: boolean;
   hideRecurring: boolean;
+  wideMode: boolean;
 }
 
 const DAY_ABBREVS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
@@ -168,7 +169,7 @@ interface EventSegment {
   colEnd: number; // exclusive
 }
 
-export function YearCalendar({ year, events, view, hideCalendars, hideEvents, showTimed, hideRecurring }: Props) {
+export function YearCalendar({ year, events, view, hideCalendars, hideEvents, showTimed, hideRecurring, wideMode }: Props) {
   // Build base URL params for hide links
   const baseParams = new URLSearchParams();
   baseParams.set("year", String(year));
@@ -176,6 +177,7 @@ export function YearCalendar({ year, events, view, hideCalendars, hideEvents, sh
   if (hideCalendars) baseParams.set("hide", hideCalendars);
   if (showTimed) baseParams.set("timed", "true");
   if (hideRecurring) baseParams.set("hideRecurring", "true");
+  if (wideMode) baseParams.set("wideMode", "true");
 
   // Helper to build URL that adds an event hash to hidden list
   function buildHideEventUrl(eventName: string): string {
@@ -193,9 +195,9 @@ export function YearCalendar({ year, events, view, hideCalendars, hideEvents, sh
     return <MonthRowGrid year={year} events={events} buildHideEventUrl={buildHideEventUrl} />;
   }
   if (view === "weekends") {
-    return <WeekendsAlignedGrid year={year} events={events} buildHideEventUrl={buildHideEventUrl} />;
+    return <WeekendsAlignedGrid year={year} events={events} buildHideEventUrl={buildHideEventUrl} wideMode={wideMode} />;
   }
-  return <ContinuousGrid year={year} events={events} buildHideEventUrl={buildHideEventUrl} />;
+  return <ContinuousGrid year={year} events={events} buildHideEventUrl={buildHideEventUrl} wideMode={wideMode} />;
 }
 
 // ============ CONTINUOUS GRID (25 cols × ~15 rows) ============
@@ -204,12 +206,14 @@ function ContinuousGrid({
   year,
   events,
   buildHideEventUrl,
+  wideMode,
 }: {
   year: number;
   events: CalendarEvent[];
   buildHideEventUrl: (eventName: string) => string;
+  wideMode: boolean;
 }) {
-  const COLS = 25;
+  const COLS = wideMode ? 15 : 25;
   const allDays = getAllDaysOfYear(year);
   const today = formatDate(new Date());
   const sizes = useResponsiveSizes();
@@ -254,54 +258,56 @@ function ContinuousGrid({
           const cellSegments = rowSegments.filter((s) => s.colStart === col);
           const dayEvents = consolidateEvents(getEventsForDate(events, dateStr));
 
-          // Background: weekends get cream, otherwise alternate gray/white by month
+          // Background: weekends get soft blue, otherwise alternate gray/white by month
           const bgClass = isWeekend
-            ? "bg-amber-50"
+            ? "bg-sky-50"
             : isOddMonth
               ? "bg-gray-50"
               : "bg-white";
 
           return (
-            <div
+            <DayPopover
               key={dateStr}
-              class={`group relative px-0.5 min-h-0 ${bgClass} ${isToday ? "ring-1 ring-orange-400 ring-inset z-10" : ""}`}
+              events={dayEvents}
+              dateLabel={`${monthAbbrev} ${dayNum}`}
+              buildHideEventUrl={buildHideEventUrl}
+              isRightSide={col >= COLS / 2}
+              isBottomHalf={row >= rowCount / 2}
             >
-              <div class="flex items-baseline justify-between text-[8px] 2xl:text-[10px] leading-none">
-                <span class="flex items-baseline gap-px">
-                  {isFirstOfMonth && (
-                    <span class="font-bold text-orange-600">{monthAbbrev}</span>
-                  )}
-                  <span
-                    class={`${
-                      isToday
-                        ? "text-orange-500 font-bold"
-                        : isFirstOfMonth
-                          ? "text-orange-600 font-bold"
-                          : "text-gray-500"
-                    }`}
-                  >
-                    {dayNum}
+              <div
+                class={`relative px-0.5 min-h-0 h-full ${bgClass} ${isToday ? "ring-1 ring-orange-400 ring-inset z-10" : ""}`}
+              >
+                <div class="flex items-baseline justify-between text-[8px] 2xl:text-[10px] leading-none">
+                  <span class="flex items-baseline gap-px">
+                    {isFirstOfMonth && (
+                      <span class="font-black text-orange-600">{monthAbbrev}</span>
+                    )}
+                    <span
+                      class={`font-medium ${
+                        isToday
+                          ? "text-orange-500 font-bold"
+                          : isFirstOfMonth
+                            ? "text-orange-600 font-bold"
+                            : "text-gray-600"
+                      }`}
+                    >
+                      {dayNum}
+                    </span>
                   </span>
-                </span>
-                <span class="text-gray-400">{DAY_ABBREVS[dayOfWeek]}</span>
+                  <span class="text-gray-400">{DAY_ABBREVS[dayOfWeek]}</span>
+                </div>
+
+                {cellSegments.map((seg, segIdx) => (
+                  <EventSegment
+                    key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
+                    event={seg.event}
+                    slot={segmentSlots.get(seg) || 0}
+                    span={seg.colEnd - seg.colStart}
+                    sizes={sizes}
+                  />
+                ))}
               </div>
-
-              {cellSegments.map((seg, segIdx) => (
-                <EventSegment
-                  key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
-                  event={seg.event}
-                  slot={segmentSlots.get(seg) || 0}
-                  span={seg.colEnd - seg.colStart}
-                  sizes={sizes}
-                />
-              ))}
-
-              <EventPopup
-                events={dayEvents}
-                dateLabel={`${monthAbbrev} ${dayNum}`}
-                buildHideEventUrl={buildHideEventUrl}
-              />
-            </div>
+            </DayPopover>
           );
         })}
       </div>
@@ -315,12 +321,14 @@ function WeekendsAlignedGrid({
   year,
   events,
   buildHideEventUrl,
+  wideMode,
 }: {
   year: number;
   events: CalendarEvent[];
   buildHideEventUrl: (eventName: string) => string;
+  wideMode: boolean;
 }) {
-  const COLS = 28; // 4 weeks × 7 days
+  const COLS = wideMode ? 21 : 28; // 3 or 4 weeks × 7 days
   const today = formatDate(new Date());
   const sizes = useResponsiveSizes();
 
@@ -385,12 +393,12 @@ function WeekendsAlignedGrid({
         class="grid gap-px bg-gray-200 mb-px"
         style={`grid-template-columns: repeat(${COLS}, 1fr);`}
       >
-        {Array.from({ length: 4 }).flatMap((_, weekIdx) =>
+        {Array.from({ length: COLS / 7 }).flatMap((_, weekIdx) =>
           DAY_ABBREVS.map((abbrev, dayIdx) => (
             <div
               key={`header-${weekIdx}-${dayIdx}`}
               class={`text-[7px] 2xl:text-[9px] text-center py-px font-medium ${
-                dayIdx === 0 || dayIdx === 6 ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-500"
+                dayIdx === 0 || dayIdx === 6 ? "bg-sky-100 text-sky-700" : "bg-gray-100 text-gray-500"
               }`}
             >
               {abbrev.charAt(0)}
@@ -418,55 +426,57 @@ function WeekendsAlignedGrid({
           const cellSegments = rowSegments.filter((s) => s.colStart === col);
           const dayEvents = isInYear ? consolidateEvents(getEventsForDate(events, dateStr)) : [];
 
-          // Background: outside year is gray-100, weekends get cream, otherwise alternate
+          // Background: outside year is gray-100, weekends get soft blue, otherwise alternate
           const bgClass = !isInYear
             ? "bg-gray-100"
             : isWeekend
-              ? "bg-amber-50"
+              ? "bg-sky-50"
               : isOddMonth
                 ? "bg-gray-50"
                 : "bg-white";
 
           return (
-            <div
+            <DayPopover
               key={`${dateStr}-${idx}`}
-              class={`group relative px-0.5 min-h-0 ${bgClass} ${isToday ? "ring-1 ring-orange-400 ring-inset z-10" : ""}`}
+              events={dayEvents}
+              dateLabel={`${monthAbbrev} ${dayNum}`}
+              buildHideEventUrl={buildHideEventUrl}
+              isRightSide={col >= COLS / 2}
+              isBottomHalf={row >= rowCount / 2}
             >
-              <div class="flex items-baseline gap-px text-[8px] 2xl:text-[10px] leading-none">
-                {isFirstOfMonth && isInYear && (
-                  <span class="font-bold text-orange-600">{monthAbbrev}</span>
-                )}
-                <span
-                  class={`${
-                    !isInYear
-                      ? "text-gray-300"
-                      : isToday
-                        ? "text-orange-500 font-bold"
-                        : isFirstOfMonth
-                          ? "text-orange-600 font-bold"
-                          : "text-gray-500"
-                  }`}
-                >
-                  {dayNum}
-                </span>
+              <div
+                class={`relative px-0.5 min-h-0 h-full ${bgClass} ${isToday ? "ring-1 ring-orange-400 ring-inset z-10" : ""}`}
+              >
+                <div class="flex items-baseline gap-px text-[8px] 2xl:text-[10px] leading-none">
+                  {isFirstOfMonth && isInYear && (
+                    <span class="font-black text-orange-600">{monthAbbrev}</span>
+                  )}
+                  <span
+                    class={`font-medium ${
+                      !isInYear
+                        ? "text-gray-300"
+                        : isToday
+                          ? "text-orange-500 font-bold"
+                          : isFirstOfMonth
+                            ? "text-orange-600 font-bold"
+                            : "text-gray-600"
+                    }`}
+                  >
+                    {dayNum}
+                  </span>
+                </div>
+
+                {isInYear && cellSegments.map((seg, segIdx) => (
+                  <EventSegment
+                    key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
+                    event={seg.event}
+                    slot={segmentSlots.get(seg) || 0}
+                    span={seg.colEnd - seg.colStart}
+                    sizes={sizes}
+                  />
+                ))}
               </div>
-
-              {isInYear && cellSegments.map((seg, segIdx) => (
-                <EventSegment
-                  key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
-                  event={seg.event}
-                  slot={segmentSlots.get(seg) || 0}
-                  span={seg.colEnd - seg.colStart}
-                  sizes={sizes}
-                />
-              ))}
-
-              <EventPopup
-                events={dayEvents}
-                dateLabel={`${monthAbbrev} ${dayNum}`}
-                buildHideEventUrl={buildHideEventUrl}
-              />
-            </div>
+            </DayPopover>
           );
         })}
       </div>
@@ -534,7 +544,7 @@ function MonthRowGrid({
               {/* Month label cell */}
               <div
                 key={`label-${m.monthIdx}`}
-                class={`flex items-center justify-center text-[8px] 2xl:text-[10px] font-bold text-orange-600 ${
+                class={`flex items-center justify-center text-[8px] 2xl:text-[10px] font-black text-orange-600 ${
                   isOddMonth ? "bg-gray-50" : "bg-white"
                 }`}
               >
@@ -553,43 +563,48 @@ function MonthRowGrid({
                 );
                 const dayEvents = dateStr ? consolidateEvents(getEventsForDate(events, dateStr)) : [];
 
-                // Background: empty cells are gray-100, weekends get cream, otherwise alternate
+                // Background: empty cells are gray-100, weekends get soft blue, otherwise alternate
                 const bgClass = isEmpty
                   ? "bg-gray-100"
                   : isWeekend
-                    ? "bg-amber-50"
+                    ? "bg-sky-50"
                     : isOddMonth
                       ? "bg-gray-50"
                       : "bg-white";
 
                 return (
-                  <div
+                  <DayPopover
                     key={`${m.monthIdx}-${dayIdx}`}
-                    class={`group relative px-0.5 min-h-0 ${bgClass} ${isToday ? "ring-1 ring-orange-400 ring-inset z-10" : ""}`}
+                    events={dayEvents}
+                    dateLabel={`${m.abbrev} ${day?.getDate()}`}
+                    buildHideEventUrl={buildHideEventUrl}
+                    isRightSide={dayIdx >= COLS / 2}
+                    isBottomHalf={m.monthIdx >= 6}
                   >
-                    {day && (
-                      <div class={`text-[8px] 2xl:text-[10px] leading-none ${isToday ? "text-orange-500 font-bold" : "text-gray-500"}`}>
-                        {day.getDate()}
-                      </div>
-                    )}
+                    <div
+                      class={`relative px-0.5 min-h-0 h-full ${bgClass} ${isToday ? "ring-1 ring-orange-400 ring-inset z-10" : ""}`}
+                    >
+                      {day && (
+                        <div class="flex items-baseline justify-between text-[8px] 2xl:text-[10px] leading-none">
+                          <span class={`font-medium ${isToday ? "text-orange-500 font-bold" : "text-gray-600"}`}>
+                            {day.getDate()}
+                          </span>
+                          <span class="text-gray-400">{DAY_ABBREVS[day.getDay()].charAt(0)}</span>
+                        </div>
+                      )}
 
-                    {cellSegments.map((seg, segIdx) => (
-                      <EventSegment
-                        key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
-                        event={seg.event}
-                        slot={segmentSlots.get(seg) || 0}
-                        span={seg.colEnd - seg.colStart}
-                        sizes={sizes}
-                        headerOffset={-2}
-                      />
-                    ))}
-
-                    <EventPopup
-                      events={dayEvents}
-                      dateLabel={`${m.abbrev} ${day?.getDate()}`}
-                      buildHideEventUrl={buildHideEventUrl}
-                    />
-                  </div>
+                      {cellSegments.map((seg, segIdx) => (
+                        <EventSegment
+                          key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
+                          event={seg.event}
+                          slot={segmentSlots.get(seg) || 0}
+                          span={seg.colEnd - seg.colStart}
+                          sizes={sizes}
+                          headerOffset={-2}
+                        />
+                      ))}
+                    </div>
+                  </DayPopover>
                 );
               })}
             </>
