@@ -20,6 +20,7 @@ export interface CalendarEvent {
   start: string; // YYYY-MM-DD
   end: string; // YYYY-MM-DD (exclusive)
   calendarId: string;
+  calendarName: string;
   color: string;
 }
 

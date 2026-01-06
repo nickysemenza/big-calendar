@@ -107,11 +107,15 @@ app.get("/", authMiddleware, async (c) => {
   const user = c.get("user");
   const accessToken = c.get("accessToken");
 
-  const query = calendarQuerySchema.safeParse({ year: c.req.query("year") });
+  const query = calendarQuerySchema.safeParse({
+    year: c.req.query("year"),
+    view: c.req.query("view"),
+  });
   const year =
     query.success && query.data.year
       ? query.data.year
       : new Date().getFullYear();
+  const view = query.success ? query.data.view : "continuous";
 
   let events: CalendarEvent[] = [];
 
@@ -126,8 +130,8 @@ app.get("/", authMiddleware, async (c) => {
 
   return c.render(
     <div class="flex flex-col h-screen">
-      <Header year={year} userEmail={user?.email || ""} />
-      <YearCalendar year={year} events={events} />
+      <Header year={year} view={view} userEmail={user?.email || ""} />
+      <YearCalendar year={year} events={events} view={view} />
     </div>
   );
 });

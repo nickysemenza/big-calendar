@@ -64,6 +64,7 @@ export async function getEvents(
           start: item.start.date,
           end: item.end?.date || item.start.date,
           calendarId: calendar.id,
+          calendarName: calendar.summary,
           color: calendar.backgroundColor || "#4285f4",
         });
       }
