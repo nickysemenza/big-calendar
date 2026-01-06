@@ -34,7 +34,7 @@ export function getAllDaysOfYear(year: number): Date[] {
   return days;
 }
 
-const DAY_ABBREVS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+const DAY_ABBREVS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 const MONTH_ABBREVS = [
   "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
   "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",

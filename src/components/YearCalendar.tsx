@@ -7,6 +7,9 @@ import {
   getMonthAbbrev,
   getDaysInMonth,
 } from "../lib/dates";
+import type { ConsolidatedEvent, ConsolidatedCalendarEvent, SizeConfig } from "./ui/types";
+import { EventSegment } from "./ui/EventSegment";
+import { EventPopup } from "./ui/EventPopup";
 
 // Responsive sizes for large monitors (≥1536px / 2xl breakpoint)
 // Uses CSS media queries for styling via Tailwind 2xl: prefix
@@ -23,17 +26,6 @@ function useResponsiveSizes() {
   };
 }
 
-// Consolidated event - same name + same start/end = one event with multiple colors
-interface ConsolidatedCalendarEvent {
-  id: string;
-  summary: string;
-  start: string;
-  end: string;
-  colors: string[];
-  calendarNames: string[];
-  isAllDay: boolean;
-  isRecurring: boolean;
-}
 
 // Consolidate events with same name AND same start/end into one
 function consolidateCalendarEvents(events: CalendarEvent[]): ConsolidatedCalendarEvent[] {
@@ -87,7 +79,7 @@ interface Props {
   hideRecurring: boolean;
 }
 
-const DAY_ABBREVS = ["S", "M", "T", "W", "T", "F", "S"];
+const DAY_ABBREVS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 const MONTH_ABBREVS = [
   "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
   "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
@@ -105,19 +97,6 @@ function getEventsForDate(events: CalendarEvent[], dateStr: string): CalendarEve
   });
 }
 
-// Consolidated event with potentially multiple colors (for popup display)
-interface ConsolidatedEvent {
-  id: string;
-  summary: string;
-  start: string;
-  end: string;
-  startTime?: string;
-  endTime?: string;
-  colors: string[];
-  calendarNames: string[];
-  isAllDay: boolean;
-  isRecurring: boolean;
-}
 
 // Consolidate events with the same name into one with multiple colors (for popup)
 function consolidateEvents(events: CalendarEvent[]): ConsolidatedEvent[] {
@@ -163,46 +142,6 @@ function consolidateEvents(events: CalendarEvent[]): ConsolidatedEvent[] {
   return result;
 }
 
-// Format date range for display (e.g., "May 1 - May 7")
-function formatDateRange(start: string, end: string): string | null {
-  const startDate = new Date(start + "T00:00:00");
-  const endDate = new Date(end + "T00:00:00");
-  endDate.setDate(endDate.getDate() - 1); // end is exclusive
-
-  // If same day, no range to show
-  if (start === end || startDate.getTime() === endDate.getTime()) {
-    return null;
-  }
-
-  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
-  const startStr = startDate.toLocaleDateString("en-US", opts);
-  const endStr = endDate.toLocaleDateString("en-US", opts);
-
-  return `${startStr} – ${endStr}`;
-}
-
-// Generate CSS background for multi-color events
-function getStripedBackground(colors: string[]): string {
-  if (colors.length === 1) {
-    return colors[0];
-  }
-
-  // Bold diagonal stripes
-  const stripeWidth = 8; // pixels per color band
-  const stops = colors.flatMap((color, i) => {
-    const start = i * stripeWidth;
-    const end = (i + 1) * stripeWidth;
-    return [`${color} ${start}px`, `${color} ${end}px`];
-  });
-
-  return `repeating-linear-gradient(135deg, ${stops.join(", ")})`;
-}
-
-interface SizeConfig {
-  minRowHeight: number;
-  headerHeight: number;
-  eventHeight: number;
-}
 
 function computeRowHeights(
   maxSlotPerRow: Map<number, number>,
@@ -345,78 +284,21 @@ function ContinuousGrid({
                 </span>
               </div>
 
-              {cellSegments.map((seg, segIdx) => {
-                const span = seg.colEnd - seg.colStart;
-                const slot = segmentSlots.get(seg) || 0;
+              {cellSegments.map((seg, segIdx) => (
+                <EventSegment
+                  key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
+                  event={seg.event}
+                  slot={segmentSlots.get(seg) || 0}
+                  span={seg.colEnd - seg.colStart}
+                  sizes={sizes}
+                />
+              ))}
 
-                const isMultiDay = span > 1;
-                return (
-                  <div
-                    key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
-                    class={`text-[8px] 2xl:text-[11px] rounded-sm px-0.5 2xl:px-1 text-white leading-tight pointer-events-auto ${
-                      isMultiDay ? "truncate" : "overflow-hidden break-words"
-                    }`}
-                    style={`
-                      background: ${getStripedBackground(seg.event.colors)};
-                      position: absolute;
-                      left: 2px;
-                      top: ${sizes.headerHeight + slot * sizes.eventHeight}px;
-                      width: calc(${span * 100}% - 4px);
-                      z-index: ${20 + slot};
-                      ${!isMultiDay ? "display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;" : ""}
-                      ${!seg.event.isAllDay ? "opacity: 0.7;" : ""}
-                    `}
-                  >
-                    {seg.event.isRecurring && <span class="absolute top-0 right-0.5 opacity-50 text-[8px] 2xl:text-[10px]">↻</span>}{seg.event.summary}
-                  </div>
-                );
-              })}
-
-              {/* Hover popup */}
-              {dayEvents.length > 0 && (
-                <div class="hidden group-hover:block absolute z-[100] left-full top-0 ml-1 bg-white rounded-lg shadow-lg border border-gray-200 p-2 2xl:p-3 min-w-[180px] 2xl:min-w-[220px] max-h-[250px] 2xl:max-h-[300px] overflow-auto">
-                  <div class="font-semibold text-xs 2xl:text-sm mb-1 pb-1 border-b border-gray-100 text-gray-700">
-                    {monthAbbrev} {dayNum} &middot; {dayEvents.length} event{dayEvents.length !== 1 ? "s" : ""}
-                  </div>
-                  <div class="space-y-0.5 2xl:space-y-1">
-                    {dayEvents.map((event) => {
-                      const dateRange = formatDateRange(event.start, event.end);
-                      return (
-                        <div key={event.id} class="flex items-start gap-1.5 2xl:gap-2 py-0.5 text-xs 2xl:text-sm group/event">
-                          <span
-                            class="w-2 h-2 2xl:w-2.5 2xl:h-2.5 rounded-full flex-shrink-0 mt-0.5"
-                            style={`background: ${getStripedBackground(event.colors)};`}
-                          />
-                          <div class="min-w-0 flex-1">
-                            <div class="flex items-center gap-1">
-                              <span class="text-gray-800 leading-tight">{event.summary}</span>
-                              {event.isRecurring && <span class="text-gray-400" title="Recurring">↻</span>}
-                              <a
-                                href={buildHideEventUrl(event.summary)}
-                                class="text-gray-300 hover:text-red-500 opacity-0 group-hover/event:opacity-100 transition-opacity ml-auto"
-                                title="Hide this event"
-                              >
-                                ×
-                              </a>
-                            </div>
-                            {event.startTime && (
-                              <div class="text-[10px] 2xl:text-xs text-gray-400">
-                                {event.startTime}{event.endTime && ` – ${event.endTime}`}
-                              </div>
-                            )}
-                            {dateRange && (
-                              <div class="text-[10px] 2xl:text-xs text-gray-400">{dateRange}</div>
-                            )}
-                            {event.colors.length > 1 && (
-                              <div class="text-[10px] 2xl:text-xs text-gray-400">{event.calendarNames.join(", ")}</div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+              <EventPopup
+                events={dayEvents}
+                dateLabel={`${monthAbbrev} ${dayNum}`}
+                buildHideEventUrl={buildHideEventUrl}
+              />
             </div>
           );
         })}
@@ -567,78 +449,21 @@ function WeekendsAlignedGrid({
                 </span>
               </div>
 
-              {isInYear && cellSegments.map((seg, segIdx) => {
-                const span = seg.colEnd - seg.colStart;
-                const slot = segmentSlots.get(seg) || 0;
+              {isInYear && cellSegments.map((seg, segIdx) => (
+                <EventSegment
+                  key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
+                  event={seg.event}
+                  slot={segmentSlots.get(seg) || 0}
+                  span={seg.colEnd - seg.colStart}
+                  sizes={sizes}
+                />
+              ))}
 
-                const isMultiDay = span > 1;
-                return (
-                  <div
-                    key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
-                    class={`text-[8px] 2xl:text-[11px] rounded-sm px-0.5 2xl:px-1 text-white leading-tight pointer-events-auto ${
-                      isMultiDay ? "truncate" : "overflow-hidden break-words"
-                    }`}
-                    style={`
-                      background: ${getStripedBackground(seg.event.colors)};
-                      position: absolute;
-                      left: 2px;
-                      top: ${sizes.headerHeight + slot * sizes.eventHeight}px;
-                      width: calc(${span * 100}% - 4px);
-                      z-index: ${20 + slot};
-                      ${!isMultiDay ? "display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;" : ""}
-                      ${!seg.event.isAllDay ? "opacity: 0.7;" : ""}
-                    `}
-                  >
-                    {seg.event.isRecurring && <span class="absolute top-0 right-0.5 opacity-50 text-[8px] 2xl:text-[10px]">↻</span>}{seg.event.summary}
-                  </div>
-                );
-              })}
-
-              {/* Hover popup */}
-              {dayEvents.length > 0 && (
-                <div class="hidden group-hover:block absolute z-[100] left-full top-0 ml-1 bg-white rounded-lg shadow-lg border border-gray-200 p-2 2xl:p-3 min-w-[180px] 2xl:min-w-[220px] max-h-[250px] 2xl:max-h-[300px] overflow-auto">
-                  <div class="font-semibold text-xs 2xl:text-sm mb-1 pb-1 border-b border-gray-100 text-gray-700">
-                    {monthAbbrev} {dayNum} &middot; {dayEvents.length} event{dayEvents.length !== 1 ? "s" : ""}
-                  </div>
-                  <div class="space-y-0.5 2xl:space-y-1">
-                    {dayEvents.map((event) => {
-                      const dateRange = formatDateRange(event.start, event.end);
-                      return (
-                        <div key={event.id} class="flex items-start gap-1.5 2xl:gap-2 py-0.5 text-xs 2xl:text-sm group/event">
-                          <span
-                            class="w-2 h-2 2xl:w-2.5 2xl:h-2.5 rounded-full flex-shrink-0 mt-0.5"
-                            style={`background: ${getStripedBackground(event.colors)};`}
-                          />
-                          <div class="min-w-0 flex-1">
-                            <div class="flex items-center gap-1">
-                              <span class="text-gray-800 leading-tight">{event.summary}</span>
-                              {event.isRecurring && <span class="text-gray-400" title="Recurring">↻</span>}
-                              <a
-                                href={buildHideEventUrl(event.summary)}
-                                class="text-gray-300 hover:text-red-500 opacity-0 group-hover/event:opacity-100 transition-opacity ml-auto"
-                                title="Hide this event"
-                              >
-                                ×
-                              </a>
-                            </div>
-                            {event.startTime && (
-                              <div class="text-[10px] 2xl:text-xs text-gray-400">
-                                {event.startTime}{event.endTime && ` – ${event.endTime}`}
-                              </div>
-                            )}
-                            {dateRange && (
-                              <div class="text-[10px] 2xl:text-xs text-gray-400">{dateRange}</div>
-                            )}
-                            {event.colors.length > 1 && (
-                              <div class="text-[10px] 2xl:text-xs text-gray-400">{event.calendarNames.join(", ")}</div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+              <EventPopup
+                events={dayEvents}
+                dateLabel={`${monthAbbrev} ${dayNum}`}
+                buildHideEventUrl={buildHideEventUrl}
+              />
             </div>
           );
         })}
@@ -746,78 +571,22 @@ function MonthRowGrid({
                       </div>
                     )}
 
-                    {cellSegments.map((seg, segIdx) => {
-                      const span = seg.colEnd - seg.colStart;
-                      const slot = segmentSlots.get(seg) || 0;
-                      const isMultiDay = span > 1;
+                    {cellSegments.map((seg, segIdx) => (
+                      <EventSegment
+                        key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
+                        event={seg.event}
+                        slot={segmentSlots.get(seg) || 0}
+                        span={seg.colEnd - seg.colStart}
+                        sizes={sizes}
+                        headerOffset={-2}
+                      />
+                    ))}
 
-                      return (
-                        <div
-                          key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
-                          class={`text-[8px] 2xl:text-[11px] rounded-sm px-0.5 2xl:px-1 text-white leading-tight pointer-events-auto ${
-                            isMultiDay ? "truncate" : "overflow-hidden break-words"
-                          }`}
-                          style={`
-                            background: ${getStripedBackground(seg.event.colors)};
-                            position: absolute;
-                            left: 2px;
-                            top: ${(sizes.headerHeight - 2) + slot * sizes.eventHeight}px;
-                            width: calc(${span * 100}% - 4px);
-                            z-index: ${20 + slot};
-                            ${!isMultiDay ? "display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;" : ""}
-                            ${!seg.event.isAllDay ? "opacity: 0.7;" : ""}
-                          `}
-                        >
-                          {seg.event.isRecurring && <span class="absolute top-0 right-0.5 opacity-50 text-[8px] 2xl:text-[10px]">↻</span>}{seg.event.summary}
-                        </div>
-                      );
-                    })}
-
-                    {/* Hover popup */}
-                    {dayEvents.length > 0 && (
-                      <div class="hidden group-hover:block absolute z-[100] left-full top-0 ml-1 bg-white rounded-lg shadow-lg border border-gray-200 p-2 2xl:p-3 min-w-[180px] 2xl:min-w-[220px] max-h-[250px] 2xl:max-h-[300px] overflow-auto">
-                        <div class="font-semibold text-xs 2xl:text-sm mb-1 pb-1 border-b border-gray-100 text-gray-700">
-                          {m.abbrev} {day?.getDate()} &middot; {dayEvents.length} event{dayEvents.length !== 1 ? "s" : ""}
-                        </div>
-                        <div class="space-y-0.5 2xl:space-y-1">
-                          {dayEvents.map((event) => {
-                            const dateRange = formatDateRange(event.start, event.end);
-                            return (
-                              <div key={event.id} class="flex items-start gap-1.5 2xl:gap-2 py-0.5 text-xs 2xl:text-sm group/event">
-                                <span
-                                  class="w-2 h-2 2xl:w-2.5 2xl:h-2.5 rounded-full flex-shrink-0 mt-0.5"
-                                  style={`background: ${getStripedBackground(event.colors)};`}
-                                />
-                                <div class="min-w-0 flex-1">
-                                  <div class="flex items-center gap-1">
-                                    <span class="text-gray-800 leading-tight">{event.summary}</span>
-                                    {event.isRecurring && <span class="text-gray-400" title="Recurring">↻</span>}
-                                    <a
-                                      href={buildHideEventUrl(event.summary)}
-                                      class="text-gray-300 hover:text-red-500 opacity-0 group-hover/event:opacity-100 transition-opacity ml-auto"
-                                      title="Hide this event"
-                                    >
-                                      ×
-                                    </a>
-                                  </div>
-                                  {event.startTime && (
-                                    <div class="text-[10px] 2xl:text-xs text-gray-400">
-                                      {event.startTime}{event.endTime && ` – ${event.endTime}`}
-                                    </div>
-                                  )}
-                                  {dateRange && (
-                                    <div class="text-[10px] 2xl:text-xs text-gray-400">{dateRange}</div>
-                                  )}
-                                  {event.colors.length > 1 && (
-                                    <div class="text-[10px] 2xl:text-xs text-gray-400">{event.calendarNames.join(", ")}</div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
+                    <EventPopup
+                      events={dayEvents}
+                      dateLabel={`${m.abbrev} ${day?.getDate()}`}
+                      buildHideEventUrl={buildHideEventUrl}
+                    />
                   </div>
                 );
               })}

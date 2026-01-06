@@ -1,1 +1,51 @@
 @import "tailwindcss";
+
+/* Event Popup - used by EventPopup component */
+.event-popup {
+  @apply hidden group-hover:block absolute z-[100] left-full top-0 ml-1;
+  @apply bg-white rounded-lg shadow-lg border border-gray-200;
+  @apply p-2 2xl:p-3;
+  @apply min-w-[180px] 2xl:min-w-[220px];
+  @apply max-h-[250px] 2xl:max-h-[300px] overflow-auto;
+}
+
+.event-popup-header {
+  @apply font-semibold text-xs 2xl:text-sm mb-1 pb-1;
+  @apply border-b border-gray-100 text-gray-700;
+}
+
+.event-popup-item {
+  @apply flex items-start gap-1.5 2xl:gap-2 py-0.5;
+  @apply text-xs 2xl:text-sm;
+}
+
+.color-dot {
+  @apply w-2 h-2 2xl:w-2.5 2xl:h-2.5 rounded-full flex-shrink-0;
+}
+
+.hide-event-btn {
+  @apply text-gray-300 hover:text-red-500;
+  @apply opacity-0 group-hover/event:opacity-100 transition-opacity ml-auto;
+}
+
+/* Event Segment - used by EventSegment component */
+.event-segment {
+  @apply text-[8px] 2xl:text-[11px] rounded-sm px-0.5 2xl:px-1;
+  @apply text-white leading-tight pointer-events-auto;
+}
+
+.event-segment-multiday {
+  @apply truncate;
+}
+
+.event-segment-singleday {
+  @apply overflow-hidden break-words;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.recurring-icon {
+  @apply absolute top-0 right-0.5 opacity-50;
+  @apply text-[8px] 2xl:text-[10px];
+}
