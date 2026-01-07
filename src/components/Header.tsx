@@ -195,8 +195,8 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
           ↻
         </a>
         <span class="text-gray-400 truncate max-w-[120px]">{userEmail}</span>
-        <a href="/signout" class="text-blue-600 hover:underline">
-          Out
+        <a href="/signout" class="text-gray-400 hover:text-gray-700" title="Sign out">
+          ⏻
         </a>
       </div>
     </header>

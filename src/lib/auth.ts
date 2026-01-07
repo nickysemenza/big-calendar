@@ -26,6 +26,8 @@ export function createAuth(env: Bindings) {
       google: {
         clientId: env.GOOGLE_CLIENT_ID,
         clientSecret: env.GOOGLE_CLIENT_SECRET,
+        accessType: "offline",
+        prompt: "consent",
         scope: [
           "openid",
           "email",
