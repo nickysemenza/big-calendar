@@ -6,7 +6,10 @@
       "Bash(pnpm add:*)",
       "Bash(npx wrangler kv namespace create CACHE)",
       "Bash(cat:*)",
-      "mcp__playwriter__execute"
+      "mcp__playwriter__execute",
+      "Bash(npx tsc:*)",
+      "Bash(pnpm exec tsc:*)",
+      "Bash(pnpm build:*)"
     ]
   }
 }

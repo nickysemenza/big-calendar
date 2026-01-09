@@ -6,8 +6,10 @@ import {
   formatDate,
   getMonthAbbrev,
   getDaysInMonth,
+  DAY_ABBREVS,
+  MONTH_ABBREVS,
 } from "../lib/dates";
-import type { ConsolidatedEvent, ConsolidatedCalendarEvent, SizeConfig } from "./ui/types";
+import type { ConsolidatedEvent, ConsolidatedCalendarEvent, SizeConfig, EventSegmentData } from "./ui/types";
 import { EventSegment } from "./ui/EventSegment";
 import { DayPopover } from "./ui/DayPopover";
 
@@ -80,22 +82,38 @@ interface Props {
   wideMode: boolean;
 }
 
-const DAY_ABBREVS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-const MONTH_ABBREVS = [
-  "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
-  "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
-];
-
 // Row height defaults (overridden by useResponsiveSizes on large screens)
 const DEFAULT_MIN_ROW_HEIGHT = 26;
 const DEFAULT_HEADER_HEIGHT = 11;
 const DEFAULT_EVENT_HEIGHT = 10;
 
+// Helper to determine background class for day cells
+function getDayBackgroundClass(options: {
+  isOutsideScope?: boolean;
+  isWeekend: boolean;
+  isOddMonth: boolean;
+}): string {
+  if (options.isOutsideScope) return "bg-gray-100";
+  if (options.isWeekend) return "bg-sky-50";
+  if (options.isOddMonth) return "bg-gray-50";
+  return "bg-white";
+}
+
+// Helper to determine day number text class
+function getDayNumberClass(options: {
+  isOutsideScope?: boolean;
+  isToday: boolean;
+  isFirstOfMonth: boolean;
+}): string {
+  if (options.isOutsideScope) return "text-gray-300";
+  if (options.isToday) return "text-orange-500 font-bold";
+  if (options.isFirstOfMonth) return "text-orange-600 font-bold";
+  return "text-gray-600";
+}
+
 // Helper to get events for a specific date
 function getEventsForDate(events: CalendarEvent[], dateStr: string): CalendarEvent[] {
-  return events.filter((event) => {
-    return event.start <= dateStr && event.end > dateStr;
-  });
+  return events.filter((event) => event.start <= dateStr && event.end > dateStr);
 }
 
 
@@ -160,13 +178,6 @@ function computeRowHeights(
     heights.push(`minmax(${minHeight}px, 1fr)`);
   }
   return heights.join(" ");
-}
-
-interface EventSegment {
-  event: ConsolidatedCalendarEvent;
-  rowStart: number;
-  colStart: number;
-  colEnd: number; // exclusive
 }
 
 export function YearCalendar({ year, events, view, hideCalendars, hideEvents, showTimed, hideRecurring, wideMode }: Props) {
@@ -257,13 +268,8 @@ function ContinuousGrid({
           const rowSegments = segmentsByRow.get(row) || [];
           const cellSegments = rowSegments.filter((s) => s.colStart === col);
           const dayEvents = consolidateEvents(getEventsForDate(events, dateStr));
-
-          // Background: weekends get soft blue, otherwise alternate gray/white by month
-          const bgClass = isWeekend
-            ? "bg-sky-50"
-            : isOddMonth
-              ? "bg-gray-50"
-              : "bg-white";
+          const bgClass = getDayBackgroundClass({ isWeekend, isOddMonth });
+          const dayNumClass = getDayNumberClass({ isToday, isFirstOfMonth });
 
           return (
             <DayPopover
@@ -282,15 +288,7 @@ function ContinuousGrid({
                     {isFirstOfMonth && (
                       <span class="font-black text-orange-600">{monthAbbrev}</span>
                     )}
-                    <span
-                      class={`font-medium ${
-                        isToday
-                          ? "text-orange-500 font-bold"
-                          : isFirstOfMonth
-                            ? "text-orange-600 font-bold"
-                            : "text-gray-600"
-                      }`}
-                    >
+                    <span class={`font-medium ${dayNumClass}`}>
                       {dayNum}
                     </span>
                   </span>
@@ -425,15 +423,8 @@ function WeekendsAlignedGrid({
           const rowSegments = segmentsByRow.get(row) || [];
           const cellSegments = rowSegments.filter((s) => s.colStart === col);
           const dayEvents = isInYear ? consolidateEvents(getEventsForDate(events, dateStr)) : [];
-
-          // Background: outside year is gray-100, weekends get soft blue, otherwise alternate
-          const bgClass = !isInYear
-            ? "bg-gray-100"
-            : isWeekend
-              ? "bg-sky-50"
-              : isOddMonth
-                ? "bg-gray-50"
-                : "bg-white";
+          const bgClass = getDayBackgroundClass({ isOutsideScope: !isInYear, isWeekend, isOddMonth });
+          const dayNumClass = getDayNumberClass({ isOutsideScope: !isInYear, isToday, isFirstOfMonth });
 
           return (
             <DayPopover
@@ -451,17 +442,7 @@ function WeekendsAlignedGrid({
                   {isFirstOfMonth && isInYear && (
                     <span class="font-black text-orange-600">{monthAbbrev}</span>
                   )}
-                  <span
-                    class={`font-medium ${
-                      !isInYear
-                        ? "text-gray-300"
-                        : isToday
-                          ? "text-orange-500 font-bold"
-                          : isFirstOfMonth
-                            ? "text-orange-600 font-bold"
-                            : "text-gray-600"
-                    }`}
-                  >
+                  <span class={`font-medium ${dayNumClass}`}>
                     {dayNum}
                   </span>
                 </div>
@@ -562,15 +543,7 @@ function MonthRowGrid({
                   (s) => s.colStart === dayIdx
                 );
                 const dayEvents = dateStr ? consolidateEvents(getEventsForDate(events, dateStr)) : [];
-
-                // Background: empty cells are gray-100, weekends get soft blue, otherwise alternate
-                const bgClass = isEmpty
-                  ? "bg-gray-100"
-                  : isWeekend
-                    ? "bg-sky-50"
-                    : isOddMonth
-                      ? "bg-gray-50"
-                      : "bg-white";
+                const bgClass = getDayBackgroundClass({ isOutsideScope: isEmpty, isWeekend, isOddMonth });
 
                 return (
                   <DayPopover
@@ -623,11 +596,11 @@ function computeEventSegments(
   totalCells: number,
   cols: number
 ): {
-  segmentsByRow: Map<number, EventSegment[]>;
-  segmentSlots: Map<EventSegment, number>;
+  segmentsByRow: Map<number, EventSegmentData[]>;
+  segmentSlots: Map<EventSegmentData, number>;
   maxSlotPerRow: Map<number, number>;
 } {
-  const eventSegments: EventSegment[] = [];
+  const eventSegments: EventSegmentData[] = [];
   const firstDateStr = [...dateToIndex.keys()][0];
   const lastDateStr = [...dateToIndex.keys()].pop()!;
 
@@ -680,13 +653,12 @@ function computeMonthEventSegments(
   year: number,
   cols: number
 ): {
-  segmentsByRow: Map<number, EventSegment[]>;
-  segmentSlots: Map<EventSegment, number>;
+  segmentsByRow: Map<number, EventSegmentData[]>;
+  segmentSlots: Map<EventSegmentData, number>;
   maxSlotPerRow: Map<number, number>;
 } {
-  const eventSegments: EventSegment[] = [];
+  const eventSegments: EventSegmentData[] = [];
   const firstDateStr = `${year}-01-01`;
-  const lastDateStr = `${year}-12-31`;
 
   for (const event of events) {
     let startDate = event.start;
@@ -730,12 +702,12 @@ function computeMonthEventSegments(
   return assignSlots(eventSegments);
 }
 
-function assignSlots(eventSegments: EventSegment[]): {
-  segmentsByRow: Map<number, EventSegment[]>;
-  segmentSlots: Map<EventSegment, number>;
+function assignSlots(eventSegments: EventSegmentData[]): {
+  segmentsByRow: Map<number, EventSegmentData[]>;
+  segmentSlots: Map<EventSegmentData, number>;
   maxSlotPerRow: Map<number, number>;
 } {
-  const segmentsByRow = new Map<number, EventSegment[]>();
+  const segmentsByRow = new Map<number, EventSegmentData[]>();
   for (const seg of eventSegments) {
     const row = seg.rowStart;
     if (!segmentsByRow.has(row)) {
