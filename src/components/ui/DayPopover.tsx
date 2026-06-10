@@ -1,6 +1,6 @@
 import type { Child } from "hono/jsx";
+import type { ConsolidatedEvent } from "../../lib/consolidate";
 import { formatDateRange, getStripedBackground } from "./helpers";
-import type { ConsolidatedEvent } from "./types";
 
 interface DayPopoverProps {
   events: ConsolidatedEvent[];

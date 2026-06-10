@@ -265,6 +265,7 @@ app.get("/", authMiddleware, async (c) => {
         showTimed={showTimed}
         hideRecurring={hideRecurring}
         wideMode={wideMode}
+        hideEvents={currentHideEventsParam}
         hiddenEventCount={hiddenEventHashes.size}
         totalEvents={visibleEvents.length}
       />

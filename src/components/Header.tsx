@@ -1,5 +1,10 @@
 import type { CalendarInfo } from "../env";
-import type { BuildUrlOverrides, View } from "../lib/validators";
+import {
+  type BuildUrlOverrides,
+  buildCalendarUrl,
+  type CalendarUrlState,
+} from "../lib/url";
+import type { View } from "../lib/validators";
 
 interface Props {
   year: number;
@@ -9,6 +14,7 @@ interface Props {
   showTimed: boolean;
   hideRecurring: boolean;
   wideMode: boolean;
+  hideEvents: string;
   hiddenEventCount: number;
   totalEvents: number;
 }
@@ -21,6 +27,7 @@ export function Header({
   showTimed,
   hideRecurring,
   wideMode,
+  hideEvents,
   hiddenEventCount,
   totalEvents,
 }: Props) {
@@ -46,25 +53,19 @@ export function Header({
     .map((c) => c.hash)
     .join(",");
 
+  const urlState: CalendarUrlState = {
+    year,
+    view,
+    hide: currentHideParam || undefined,
+    hideEvents: hideEvents || undefined,
+    timed: showTimed,
+    hideRecurring,
+    wideMode,
+  };
+
   // Build URL with optional overrides
   function buildUrl(overrides: BuildUrlOverrides = {}): string {
-    const params = new URLSearchParams();
-    params.set("year", String(overrides.year ?? year));
-    params.set("view", overrides.view ?? view);
-
-    const timedValue = overrides.timed ?? showTimed;
-    if (timedValue) params.set("timed", "true");
-
-    const recurringValue = overrides.hideRecurring ?? hideRecurring;
-    if (recurringValue) params.set("hideRecurring", "true");
-
-    const wideModeValue = overrides.wideMode ?? wideMode;
-    if (wideModeValue) params.set("wideMode", "true");
-
-    const hideValue = overrides.hide ?? currentHideParam;
-    if (hideValue) params.set("hide", hideValue);
-
-    return `/?${params.toString()}`;
+    return buildCalendarUrl(urlState, overrides);
   }
 
   // Build URL for toggling a calendar's visibility

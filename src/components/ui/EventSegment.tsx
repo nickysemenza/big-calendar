@@ -1,8 +1,9 @@
+import type { ConsolidatedEvent } from "../../lib/consolidate";
+import type { SizeConfig } from "../../lib/segments";
 import { getStripedBackground } from "./helpers";
-import type { ConsolidatedCalendarEvent, SizeConfig } from "./types";
 
 interface EventSegmentProps {
-  event: ConsolidatedCalendarEvent;
+  event: ConsolidatedEvent;
   slot: number;
   span: number;
   sizes: SizeConfig;
