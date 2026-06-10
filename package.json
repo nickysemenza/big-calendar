@@ -1,6 +1,7 @@
 {
   "name": "big-calendar",
   "type": "module",
+  "packageManager": "pnpm@11.1.2",
   "engines": {
     "node": ">=22.12.0"
   },
