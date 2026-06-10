@@ -2,7 +2,10 @@
 import type { CalendarEvent } from "../../lib/validators";
 
 // Base type for consolidated events - multiple colors/calendars instead of single
-type ConsolidatedBase = Omit<CalendarEvent, "color" | "calendarName" | "calendarId"> & {
+type ConsolidatedBase = Omit<
+  CalendarEvent,
+  "color" | "calendarName" | "calendarId"
+> & {
   colors: string[];
   calendarNames: string[];
 };
@@ -11,7 +14,10 @@ type ConsolidatedBase = Omit<CalendarEvent, "color" | "calendarName" | "calendar
 export type ConsolidatedEvent = ConsolidatedBase;
 
 // Consolidated calendar event without time info (for grid segments)
-export type ConsolidatedCalendarEvent = Omit<ConsolidatedBase, "startTime" | "endTime">;
+export type ConsolidatedCalendarEvent = Omit<
+  ConsolidatedBase,
+  "startTime" | "endTime"
+>;
 
 // Size configuration for responsive layouts
 export interface SizeConfig {

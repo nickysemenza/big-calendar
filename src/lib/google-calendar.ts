@@ -1,18 +1,33 @@
 import type { CalendarEvent, GoogleCalendar } from "../env";
-import { googleCalendarListSchema, googleCalendarSchema, googleEventsResponseSchema } from "./validators";
-import { toDateString, toTimeString, addDays } from "./dates";
+import { addDays, toDateString, toTimeString } from "./dates";
+import {
+  googleCalendarListSchema,
+  googleCalendarSchema,
+  googleEventsResponseSchema,
+} from "./validators";
 
 // Special Google system calendars that don't appear in calendarList
 const SPECIAL_CALENDARS = [
-  { id: "addressbook#contacts@group.v.calendar.google.com", name: "Birthdays", color: "#9a9cff" },
-  { id: "en.usa#holiday@group.v.calendar.google.com", name: "Holidays in United States", color: "#4caf50" },
+  {
+    id: "addressbook#contacts@group.v.calendar.google.com",
+    name: "Birthdays",
+    color: "#9a9cff",
+  },
+  {
+    id: "en.usa#holiday@group.v.calendar.google.com",
+    name: "Holidays in United States",
+    color: "#4caf50",
+  },
 ];
 
 // Virtual calendar for company holidays
 const COMPANY_HOLIDAYS_ID = "virtual:company-holidays";
 const COMPANY_HOLIDAYS_COLOR = "#e91e63";
 
-const COMPANY_HOLIDAYS: Record<number, Array<{ date: string; name: string }>> = {
+const COMPANY_HOLIDAYS: Record<
+  number,
+  Array<{ date: string; name: string }>
+> = {
   2025: [
     { date: "2025-01-01", name: "New Year's Day" },
     { date: "2025-01-20", name: "Martin Luther King Jr. Day" },
@@ -57,7 +72,7 @@ const CACHE_TTL = 60; // 1 minute
 export async function getCalendarList(
   accessToken: string,
   cache: KVNamespace,
-  userId: string
+  userId: string,
 ): Promise<GoogleCalendar[]> {
   // Check cache first
   const cacheKey = `calendars:${userId}`;
@@ -68,7 +83,7 @@ export async function getCalendarList(
 
   const res = await fetch(
     "https://www.googleapis.com/calendar/v3/users/me/calendarList",
-    { headers: { Authorization: `Bearer ${accessToken}` } }
+    { headers: { Authorization: `Bearer ${accessToken}` } },
   );
 
   if (!res.ok) {
@@ -80,24 +95,24 @@ export async function getCalendarList(
   const calendars = googleCalendarListSchema.parse(data).items;
 
   // Try to add special calendars that don't appear in calendarList (in parallel)
-  const specialFetches = SPECIAL_CALENDARS
-    .filter((special) => !calendars.some((c) => c.id === special.id))
-    .map(async (special) => {
-      const specialRes = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(special.id)}`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
+  const specialFetches = SPECIAL_CALENDARS.filter(
+    (special) => !calendars.some((c) => c.id === special.id),
+  ).map(async (special) => {
+    const specialRes = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(special.id)}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
 
-      if (specialRes.ok) {
-        const cal = googleCalendarSchema.parse(await specialRes.json());
-        return {
-          id: cal.id,
-          summary: cal.summary || special.name,
-          backgroundColor: cal.backgroundColor || special.color,
-        };
-      }
-      return null;
-    });
+    if (specialRes.ok) {
+      const cal = googleCalendarSchema.parse(await specialRes.json());
+      return {
+        id: cal.id,
+        summary: cal.summary || special.name,
+        backgroundColor: cal.backgroundColor || special.color,
+      };
+    }
+    return null;
+  });
 
   const specialResults = await Promise.all(specialFetches);
   for (const cal of specialResults) {
@@ -112,7 +127,9 @@ export async function getCalendarList(
   });
 
   // Store in cache
-  await cache.put(cacheKey, JSON.stringify(calendars), { expirationTtl: CACHE_TTL });
+  await cache.put(cacheKey, JSON.stringify(calendars), {
+    expirationTtl: CACHE_TTL,
+  });
 
   return calendars;
 }
@@ -122,7 +139,7 @@ export async function getEvents(
   calendars: GoogleCalendar[],
   year: number,
   cache: KVNamespace,
-  userId: string
+  userId: string,
 ): Promise<CalendarEvent[]> {
   // Check cache first
   const cacheKey = `events:${userId}:${year}`;
@@ -144,7 +161,7 @@ export async function getEvents(
     .filter((calendar) => !calendar.id.startsWith("virtual:"))
     .map(async (calendar) => {
       const url = new URL(
-        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.id)}/events`
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.id)}/events`,
       );
       url.searchParams.set("timeMin", timeMin);
       url.searchParams.set("timeMax", timeMax);
@@ -183,14 +200,18 @@ export async function getEvents(
         // Timed events (have start.dateTime) - always fetch for caching
         else if (item.start?.dateTime) {
           const startDate = toDateString(item.start.dateTime);
-          const endDate = item.end?.dateTime ? toDateString(item.end.dateTime) : startDate;
+          const endDate = item.end?.dateTime
+            ? toDateString(item.end.dateTime)
+            : startDate;
           calendarEvents.push({
             id: item.id,
             summary: item.summary || "(No title)",
             start: startDate,
             end: endDate === startDate ? addDays(startDate, 1) : endDate,
             startTime: toTimeString(item.start.dateTime),
-            endTime: item.end?.dateTime ? toTimeString(item.end.dateTime) : undefined,
+            endTime: item.end?.dateTime
+              ? toTimeString(item.end.dateTime)
+              : undefined,
             calendarId: calendar.id,
             calendarName: calendar.summary,
             color: calendar.backgroundColor || "#4285f4",
@@ -208,7 +229,9 @@ export async function getEvents(
   }
 
   // Store in cache
-  await cache.put(cacheKey, JSON.stringify(events), { expirationTtl: CACHE_TTL });
+  await cache.put(cacheKey, JSON.stringify(events), {
+    expirationTtl: CACHE_TTL,
+  });
 
   return events;
 }

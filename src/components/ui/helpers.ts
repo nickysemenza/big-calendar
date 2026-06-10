@@ -19,8 +19,8 @@ export function getStripedBackground(colors: string[]): string {
 
 // Format date range for display (e.g., "May 1 – May 7")
 export function formatDateRange(start: string, end: string): string | null {
-  const startDate = new Date(start + "T00:00:00");
-  const endDate = new Date(end + "T00:00:00");
+  const startDate = new Date(`${start}T00:00:00`);
+  const endDate = new Date(`${end}T00:00:00`);
   endDate.setDate(endDate.getDate() - 1); // end is exclusive
 
   // If same day, no range to show

@@ -1,36 +1,39 @@
 import type { CalendarEvent } from "../env";
 import { shortHash } from "../env";
-import type { View } from "../lib/validators";
 import {
-  getAllDaysOfYear,
-  formatDate,
-  getMonthAbbrev,
-  getDaysInMonth,
   DAY_ABBREVS,
+  formatDate,
+  getAllDaysOfYear,
+  getDaysInMonth,
+  getMonthAbbrev,
   MONTH_ABBREVS,
 } from "../lib/dates";
-import type { ConsolidatedEvent, ConsolidatedCalendarEvent, SizeConfig, EventSegmentData } from "./ui/types";
-import { EventSegment } from "./ui/EventSegment";
+import type { View } from "../lib/validators";
 import { DayPopover } from "./ui/DayPopover";
+import { EventSegment } from "./ui/EventSegment";
+import type {
+  ConsolidatedCalendarEvent,
+  ConsolidatedEvent,
+  EventSegmentData,
+  SizeConfig,
+} from "./ui/types";
 
-// Responsive sizes for large monitors (≥1536px / 2xl breakpoint)
-// Uses CSS media queries for styling via Tailwind 2xl: prefix
-// Returns JS values for inline styles that can't use CSS
+// Sizes for inline styles that can't use CSS media queries.
+// This renders server-side only (no hydration), so there's no window to
+// query — large-screen styling is handled by Tailwind 2xl: classes instead.
 function useResponsiveSizes() {
-  // Check if we're on a large screen (SSR-safe - returns false during SSR)
-  const isLarge = typeof window !== "undefined" && window.matchMedia("(min-width: 1536px)").matches;
-
   return {
-    minRowHeight: isLarge ? 38 : 26,
-    headerHeight: isLarge ? 14 : 11,
-    eventHeight: isLarge ? 13 : 10,
-    isLarge,
+    minRowHeight: 26,
+    headerHeight: 11,
+    eventHeight: 10,
+    isLarge: false,
   };
 }
 
-
 // Consolidate events with same name AND same start/end into one
-function consolidateCalendarEvents(events: CalendarEvent[]): ConsolidatedCalendarEvent[] {
+function consolidateCalendarEvents(
+  events: CalendarEvent[],
+): ConsolidatedCalendarEvent[] {
   const byKey = new Map<string, CalendarEvent[]>();
 
   for (const event of events) {
@@ -112,10 +115,14 @@ function getDayNumberClass(options: {
 }
 
 // Helper to get events for a specific date
-function getEventsForDate(events: CalendarEvent[], dateStr: string): CalendarEvent[] {
-  return events.filter((event) => event.start <= dateStr && event.end > dateStr);
+function getEventsForDate(
+  events: CalendarEvent[],
+  dateStr: string,
+): CalendarEvent[] {
+  return events.filter(
+    (event) => event.start <= dateStr && event.end > dateStr,
+  );
 }
-
 
 // Consolidate events with the same name into one with multiple colors (for popup)
 function consolidateEvents(events: CalendarEvent[]): ConsolidatedEvent[] {
@@ -161,18 +168,21 @@ function consolidateEvents(events: CalendarEvent[]): ConsolidatedEvent[] {
   return result;
 }
 
-
 function computeRowHeights(
   maxSlotPerRow: Map<number, number>,
   rowCount: number,
-  sizes: SizeConfig = { minRowHeight: DEFAULT_MIN_ROW_HEIGHT, headerHeight: DEFAULT_HEADER_HEIGHT, eventHeight: DEFAULT_EVENT_HEIGHT }
+  sizes: SizeConfig = {
+    minRowHeight: DEFAULT_MIN_ROW_HEIGHT,
+    headerHeight: DEFAULT_HEADER_HEIGHT,
+    eventHeight: DEFAULT_EVENT_HEIGHT,
+  },
 ): string {
   const heights: string[] = [];
   for (let row = 0; row < rowCount; row++) {
     const maxSlot = maxSlotPerRow.get(row) ?? -1;
     const minHeight = Math.max(
       sizes.minRowHeight,
-      sizes.headerHeight + (maxSlot + 1) * sizes.eventHeight + 4
+      sizes.headerHeight + (maxSlot + 1) * sizes.eventHeight + 4,
     );
     // Use minmax so rows fill available space but respect minimum for events
     heights.push(`minmax(${minHeight}px, 1fr)`);
@@ -180,7 +190,16 @@ function computeRowHeights(
   return heights.join(" ");
 }
 
-export function YearCalendar({ year, events, view, hideCalendars, hideEvents, showTimed, hideRecurring, wideMode }: Props) {
+export function YearCalendar({
+  year,
+  events,
+  view,
+  hideCalendars,
+  hideEvents,
+  showTimed,
+  hideRecurring,
+  wideMode,
+}: Props) {
   // Build base URL params for hide links
   const baseParams = new URLSearchParams();
   baseParams.set("year", String(year));
@@ -203,12 +222,32 @@ export function YearCalendar({ year, events, view, hideCalendars, hideEvents, sh
   }
 
   if (view === "month") {
-    return <MonthRowGrid year={year} events={events} buildHideEventUrl={buildHideEventUrl} />;
+    return (
+      <MonthRowGrid
+        year={year}
+        events={events}
+        buildHideEventUrl={buildHideEventUrl}
+      />
+    );
   }
   if (view === "weekends") {
-    return <WeekendsAlignedGrid year={year} events={events} buildHideEventUrl={buildHideEventUrl} wideMode={wideMode} />;
+    return (
+      <WeekendsAlignedGrid
+        year={year}
+        events={events}
+        buildHideEventUrl={buildHideEventUrl}
+        wideMode={wideMode}
+      />
+    );
   }
-  return <ContinuousGrid year={year} events={events} buildHideEventUrl={buildHideEventUrl} wideMode={wideMode} />;
+  return (
+    <ContinuousGrid
+      year={year}
+      events={events}
+      buildHideEventUrl={buildHideEventUrl}
+      wideMode={wideMode}
+    />
+  );
 }
 
 // ============ CONTINUOUS GRID (25 cols × ~15 rows) ============
@@ -244,7 +283,7 @@ function ContinuousGrid({
     consolidatedEvents,
     dateToIndex,
     totalCells,
-    COLS
+    COLS,
   );
 
   return (
@@ -267,7 +306,9 @@ function ContinuousGrid({
           const col = idx % COLS;
           const rowSegments = segmentsByRow.get(row) || [];
           const cellSegments = rowSegments.filter((s) => s.colStart === col);
-          const dayEvents = consolidateEvents(getEventsForDate(events, dateStr));
+          const dayEvents = consolidateEvents(
+            getEventsForDate(events, dateStr),
+          );
           const bgClass = getDayBackgroundClass({ isWeekend, isOddMonth });
           const dayNumClass = getDayNumberClass({ isToday, isFirstOfMonth });
 
@@ -286,11 +327,11 @@ function ContinuousGrid({
                 <div class="flex items-baseline justify-between text-[8px] 2xl:text-[10px] leading-none">
                   <span class="flex items-baseline gap-px">
                     {isFirstOfMonth && (
-                      <span class="font-black text-orange-600">{monthAbbrev}</span>
+                      <span class="font-black text-orange-600">
+                        {monthAbbrev}
+                      </span>
                     )}
-                    <span class={`font-medium ${dayNumClass}`}>
-                      {dayNum}
-                    </span>
+                    <span class={`font-medium ${dayNumClass}`}>{dayNum}</span>
                   </span>
                   <span class="text-gray-400">{DAY_ABBREVS[dayOfWeek]}</span>
                 </div>
@@ -381,7 +422,7 @@ function WeekendsAlignedGrid({
     consolidatedEvents,
     dateToIndex,
     cells.length,
-    COLS
+    COLS,
   );
 
   return (
@@ -396,12 +437,14 @@ function WeekendsAlignedGrid({
             <div
               key={`header-${weekIdx}-${dayIdx}`}
               class={`text-[7px] 2xl:text-[9px] text-center py-px font-medium ${
-                dayIdx === 0 || dayIdx === 6 ? "bg-sky-100 text-sky-700" : "bg-gray-100 text-gray-500"
+                dayIdx === 0 || dayIdx === 6
+                  ? "bg-sky-100 text-sky-700"
+                  : "bg-gray-100 text-gray-500"
               }`}
             >
               {abbrev.charAt(0)}
             </div>
-          ))
+          )),
         )}
       </div>
       <div
@@ -422,9 +465,19 @@ function WeekendsAlignedGrid({
           const col = idx % COLS;
           const rowSegments = segmentsByRow.get(row) || [];
           const cellSegments = rowSegments.filter((s) => s.colStart === col);
-          const dayEvents = isInYear ? consolidateEvents(getEventsForDate(events, dateStr)) : [];
-          const bgClass = getDayBackgroundClass({ isOutsideScope: !isInYear, isWeekend, isOddMonth });
-          const dayNumClass = getDayNumberClass({ isOutsideScope: !isInYear, isToday, isFirstOfMonth });
+          const dayEvents = isInYear
+            ? consolidateEvents(getEventsForDate(events, dateStr))
+            : [];
+          const bgClass = getDayBackgroundClass({
+            isOutsideScope: !isInYear,
+            isWeekend,
+            isOddMonth,
+          });
+          const dayNumClass = getDayNumberClass({
+            isOutsideScope: !isInYear,
+            isToday,
+            isFirstOfMonth,
+          });
 
           return (
             <DayPopover
@@ -440,22 +493,23 @@ function WeekendsAlignedGrid({
               >
                 <div class="flex items-baseline gap-px text-[8px] 2xl:text-[10px] leading-none">
                   {isFirstOfMonth && isInYear && (
-                    <span class="font-black text-orange-600">{monthAbbrev}</span>
+                    <span class="font-black text-orange-600">
+                      {monthAbbrev}
+                    </span>
                   )}
-                  <span class={`font-medium ${dayNumClass}`}>
-                    {dayNum}
-                  </span>
+                  <span class={`font-medium ${dayNumClass}`}>{dayNum}</span>
                 </div>
 
-                {isInYear && cellSegments.map((seg, segIdx) => (
-                  <EventSegment
-                    key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
-                    event={seg.event}
-                    slot={segmentSlots.get(seg) || 0}
-                    span={seg.colEnd - seg.colStart}
-                    sizes={sizes}
-                  />
-                ))}
+                {isInYear &&
+                  cellSegments.map((seg, segIdx) => (
+                    <EventSegment
+                      key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
+                      event={seg.event}
+                      slot={segmentSlots.get(seg) || 0}
+                      span={seg.colEnd - seg.colStart}
+                      sizes={sizes}
+                    />
+                  ))}
               </div>
             </DayPopover>
           );
@@ -504,18 +558,17 @@ function MonthRowGrid({
   });
 
   // Compute event segments for month view
-  const { segmentsByRow, segmentSlots, maxSlotPerRow } = computeMonthEventSegments(
-    consolidatedEvents,
-    dateToPos,
-    year,
-    COLS
-  );
+  const { segmentsByRow, segmentSlots, maxSlotPerRow } =
+    computeMonthEventSegments(consolidatedEvents, year);
 
   const monthLabelWidth = sizes.isLarge ? 32 : 24;
 
   return (
     <div class="flex-1 bg-white p-1 overflow-auto">
-      <div class="grid h-full" style={`grid-template-columns: ${monthLabelWidth}px repeat(31, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, 12, sizes)}; gap: 1px; background: #e5e7eb;`}>
+      <div
+        class="grid h-full"
+        style={`grid-template-columns: ${monthLabelWidth}px repeat(31, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, 12, sizes)}; gap: 1px; background: #e5e7eb;`}
+      >
         {months.map((m) => {
           const isOddMonth = m.monthIdx % 2 === 1;
           const rowSegments = segmentsByRow.get(m.monthIdx) || [];
@@ -538,12 +591,20 @@ function MonthRowGrid({
                 const dateStr = day ? formatDate(day) : null;
                 const isToday = dateStr === today;
                 const isEmpty = !day;
-                const isWeekend = day ? (day.getDay() === 0 || day.getDay() === 6) : false;
+                const isWeekend = day
+                  ? day.getDay() === 0 || day.getDay() === 6
+                  : false;
                 const cellSegments = rowSegments.filter(
-                  (s) => s.colStart === dayIdx
+                  (s) => s.colStart === dayIdx,
                 );
-                const dayEvents = dateStr ? consolidateEvents(getEventsForDate(events, dateStr)) : [];
-                const bgClass = getDayBackgroundClass({ isOutsideScope: isEmpty, isWeekend, isOddMonth });
+                const dayEvents = dateStr
+                  ? consolidateEvents(getEventsForDate(events, dateStr))
+                  : [];
+                const bgClass = getDayBackgroundClass({
+                  isOutsideScope: isEmpty,
+                  isWeekend,
+                  isOddMonth,
+                });
 
                 return (
                   <DayPopover
@@ -559,10 +620,14 @@ function MonthRowGrid({
                     >
                       {day && (
                         <div class="flex items-baseline justify-between text-[8px] 2xl:text-[10px] leading-none">
-                          <span class={`font-medium ${isToday ? "text-orange-500 font-bold" : "text-gray-600"}`}>
+                          <span
+                            class={`font-medium ${isToday ? "text-orange-500 font-bold" : "text-gray-600"}`}
+                          >
                             {day.getDate()}
                           </span>
-                          <span class="text-gray-400">{DAY_ABBREVS[day.getDay()].charAt(0)}</span>
+                          <span class="text-gray-400">
+                            {DAY_ABBREVS[day.getDay()].charAt(0)}
+                          </span>
                         </div>
                       )}
 
@@ -594,7 +659,7 @@ function computeEventSegments(
   events: ConsolidatedCalendarEvent[],
   dateToIndex: Map<string, number>,
   totalCells: number,
-  cols: number
+  cols: number,
 ): {
   segmentsByRow: Map<number, EventSegmentData[]>;
   segmentSlots: Map<EventSegmentData, number>;
@@ -649,9 +714,7 @@ function computeEventSegments(
 
 function computeMonthEventSegments(
   events: ConsolidatedCalendarEvent[],
-  dateToPos: Map<string, { row: number; col: number }>,
   year: number,
-  cols: number
 ): {
   segmentsByRow: Map<number, EventSegmentData[]>;
   segmentSlots: Map<EventSegmentData, number>;
@@ -687,8 +750,7 @@ function computeMonthEventSegments(
       const daysInThisMonth = new Date(year, month + 1, 0).getDate();
 
       const segStartCol = month === startMonth ? startDay - 1 : 0;
-      const segEndCol =
-        month === endMonth ? endDay : daysInThisMonth;
+      const segEndCol = month === endMonth ? endDay : daysInThisMonth;
 
       eventSegments.push({
         event,
@@ -716,7 +778,7 @@ function assignSlots(eventSegments: EventSegmentData[]): {
     segmentsByRow.get(row)!.push(seg);
   }
 
-  const segmentSlots = new Map<EventSegment, number>();
+  const segmentSlots = new Map<EventSegmentData, number>();
   const maxSlotPerRow = new Map<number, number>();
 
   for (const [row, rowSegments] of segmentsByRow) {

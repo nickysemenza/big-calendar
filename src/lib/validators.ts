@@ -9,9 +9,18 @@ export const calendarQuerySchema = z.object({
   view: viewSchema.optional().default("continuous"),
   hide: z.string().optional(), // comma-separated calendar hashes to hide
   hideEvents: z.string().optional(), // comma-separated event name hashes to hide
-  timed: z.enum(["true", "false"]).optional().transform((v) => v === "true"),
-  hideRecurring: z.enum(["true", "false"]).optional().transform((v) => v === "true"),
-  wideMode: z.enum(["true", "false"]).optional().transform((v) => v === "true"),
+  timed: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
+  hideRecurring: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
+  wideMode: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
 });
 
 export type CalendarQuery = z.infer<typeof calendarQuerySchema>;
@@ -36,10 +45,20 @@ export const googleEventsResponseSchema = z.object({
       z.object({
         id: z.string(),
         summary: z.string().optional(),
-        start: z.object({ date: z.string().optional(), dateTime: z.string().optional() }).optional(),
-        end: z.object({ date: z.string().optional(), dateTime: z.string().optional() }).optional(),
+        start: z
+          .object({
+            date: z.string().optional(),
+            dateTime: z.string().optional(),
+          })
+          .optional(),
+        end: z
+          .object({
+            date: z.string().optional(),
+            dateTime: z.string().optional(),
+          })
+          .optional(),
         recurringEventId: z.string().optional(),
-      })
+      }),
     )
     .optional(),
 });

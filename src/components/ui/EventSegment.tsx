@@ -1,5 +1,5 @@
-import type { ConsolidatedCalendarEvent, SizeConfig } from "./types";
 import { getStripedBackground } from "./helpers";
+import type { ConsolidatedCalendarEvent, SizeConfig } from "./types";
 
 interface EventSegmentProps {
   event: ConsolidatedCalendarEvent;
@@ -9,9 +9,16 @@ interface EventSegmentProps {
   headerOffset?: number; // Optional adjustment for header height (e.g., -2 for month view)
 }
 
-export function EventSegment({ event, slot, span, sizes, headerOffset = 0 }: EventSegmentProps) {
+export function EventSegment({
+  event,
+  slot,
+  span,
+  sizes,
+  headerOffset = 0,
+}: EventSegmentProps) {
   const isMultiDay = span > 1;
-  const topOffset = (sizes.headerHeight + headerOffset) + slot * sizes.eventHeight;
+  const topOffset =
+    sizes.headerHeight + headerOffset + slot * sizes.eventHeight;
 
   return (
     <div

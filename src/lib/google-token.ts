@@ -12,7 +12,7 @@ export interface TokenRefreshResult {
 export class TokenRefreshFailedError extends Error {
   constructor(
     public readonly errorCode: string,
-    message: string
+    message: string,
   ) {
     super(message);
     this.name = "TokenRefreshFailedError";
@@ -28,7 +28,7 @@ export class TokenRefreshFailedError extends Error {
  */
 export async function refreshGoogleToken(
   refreshToken: string,
-  env: Bindings
+  env: Bindings,
 ): Promise<TokenRefreshResult> {
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -50,7 +50,7 @@ export async function refreshGoogleToken(
     };
     throw new TokenRefreshFailedError(
       error.error,
-      error.error_description || "Token refresh failed"
+      error.error_description || "Token refresh failed",
     );
   }
 
@@ -77,7 +77,7 @@ export async function updateAccountTokens(
     accessToken: string;
     accessTokenExpiresAt: Date;
     refreshToken?: string;
-  }
+  },
 ): Promise<void> {
   await db
     .update(accounts)

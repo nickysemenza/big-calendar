@@ -36,8 +36,18 @@ export function getAllDaysOfYear(year: number): Date[] {
 
 export const DAY_ABBREVS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 export const MONTH_ABBREVS = [
-  "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
-  "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
+  "JAN",
+  "FEB",
+  "MAR",
+  "APR",
+  "MAY",
+  "JUN",
+  "JUL",
+  "AUG",
+  "SEP",
+  "OCT",
+  "NOV",
+  "DEC",
 ];
 
 export function getDayAbbrev(date: Date): string {
@@ -56,12 +66,15 @@ export function toDateString(dateOrDateTime: string): string {
 /** Extract HH:MM time from ISO datetime string */
 export function toTimeString(dateTime: string): string {
   const date = new Date(dateTime);
-  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 /** Add days to a YYYY-MM-DD string and return new YYYY-MM-DD */
 export function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + "T00:00:00");
+  const d = new Date(`${dateStr}T00:00:00`);
   d.setDate(d.getDate() + days);
   return formatDate(d);
 }

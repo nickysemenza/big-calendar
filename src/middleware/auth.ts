@@ -1,14 +1,14 @@
-import { createMiddleware } from "hono/factory";
 import { eq } from "drizzle-orm";
+import { createMiddleware } from "hono/factory";
 import type { Bindings, Variables } from "../env";
 import { createAuth } from "../lib/auth";
 import { createDb } from "../lib/db";
-import { accounts } from "../lib/schema";
 import {
   refreshGoogleToken,
-  updateAccountTokens,
   TokenRefreshFailedError,
+  updateAccountTokens,
 } from "../lib/google-token";
+import { accounts } from "../lib/schema";
 
 const EXPIRY_BUFFER_MS = 5 * 60 * 1000; // Refresh 5 minutes before expiration
 
@@ -64,10 +64,7 @@ export const authMiddleware = createMiddleware<{
 
       accessToken = newTokens.accessToken;
     } catch (error) {
-      if (
-        error instanceof TokenRefreshFailedError &&
-        error.requiresReauth()
-      ) {
+      if (error instanceof TokenRefreshFailedError && error.requiresReauth()) {
         // Refresh token is invalid - clear tokens and redirect to login
         await db
           .update(accounts)
