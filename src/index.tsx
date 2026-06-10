@@ -177,6 +177,12 @@ app.get("/", authMiddleware, async (c) => {
   let allEvents: CalendarEvent[] = [];
   let calendarInfos: CalendarInfo[] = [];
   let hiddenIds = new Set<string>();
+  let loadError: string | null = null;
+
+  if (user && !accessToken) {
+    loadError =
+      "Your Google session couldn't be refreshed. Try again or sign out and back in.";
+  }
 
   if (accessToken && user) {
     try {
@@ -222,6 +228,7 @@ app.get("/", authMiddleware, async (c) => {
       }));
     } catch (error) {
       console.error("Failed to fetch events:", error);
+      loadError = "Couldn't load calendar data from Google. Try refreshing.";
     }
   }
 
@@ -269,6 +276,14 @@ app.get("/", authMiddleware, async (c) => {
         hiddenEventCount={hiddenEventHashes.size}
         totalEvents={visibleEvents.length}
       />
+      {loadError && (
+        <div class="flex items-center gap-2 bg-red-50 border-b border-red-200 text-red-700 text-xs px-2 py-1">
+          <span>{loadError}</span>
+          <a href="/refresh" class="underline">
+            Retry
+          </a>
+        </div>
+      )}
       <YearCalendar
         year={year}
         events={visibleEvents}

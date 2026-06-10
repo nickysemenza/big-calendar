@@ -77,8 +77,10 @@ export const authMiddleware = createMiddleware<{
 
         return c.redirect("/login");
       }
-      // For other errors, continue with existing token
+      // For other errors, don't pretend the stale token works - clear it
+      // so the route can show an error instead of failing API calls
       console.error("Token refresh error:", error);
+      accessToken = null;
     }
   }
 

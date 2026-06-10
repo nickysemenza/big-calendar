@@ -1,6 +1,13 @@
 import type { CalendarEvent, GoogleCalendar } from "../env";
+import {
+  COMPANY_HOLIDAYS_COLOR,
+  COMPANY_HOLIDAYS_ID,
+  getCompanyHolidayEvents,
+} from "./company-holidays";
 import { addDays, toDateString, toTimeString } from "./dates";
 import {
+  cachedCalendarsSchema,
+  cachedEventsSchema,
   googleCalendarListSchema,
   googleCalendarSchema,
   googleEventsResponseSchema,
@@ -20,53 +27,6 @@ const SPECIAL_CALENDARS = [
   },
 ];
 
-// Virtual calendar for company holidays
-const COMPANY_HOLIDAYS_ID = "virtual:company-holidays";
-const COMPANY_HOLIDAYS_COLOR = "#e91e63";
-
-const COMPANY_HOLIDAYS: Record<
-  number,
-  Array<{ date: string; name: string }>
-> = {
-  2025: [
-    { date: "2025-01-01", name: "New Year's Day" },
-    { date: "2025-01-20", name: "Martin Luther King Jr. Day" },
-    { date: "2025-02-17", name: "President's Day" },
-    { date: "2025-05-26", name: "Memorial Day" },
-    { date: "2025-07-04", name: "Independence Day" },
-    { date: "2025-09-01", name: "Labor Day" },
-    { date: "2025-11-27", name: "Thanksgiving" },
-    { date: "2025-11-28", name: "Day After Thanksgiving" },
-    { date: "2025-12-25", name: "Christmas" },
-  ],
-  2026: [
-    { date: "2026-01-01", name: "New Year's Day" },
-    { date: "2026-01-19", name: "Martin Luther King Jr. Day" },
-    { date: "2026-02-16", name: "President's Day" },
-    { date: "2026-05-25", name: "Memorial Day" },
-    { date: "2026-07-03", name: "Independence Day (observed)" },
-    { date: "2026-09-07", name: "Labor Day" },
-    { date: "2026-11-26", name: "Thanksgiving" },
-    { date: "2026-11-27", name: "Day After Thanksgiving" },
-    { date: "2026-12-25", name: "Christmas" },
-  ],
-};
-
-function getCompanyHolidayEvents(year: number): CalendarEvent[] {
-  const holidays = COMPANY_HOLIDAYS[year] || [];
-  return holidays.map((h, i) => ({
-    id: `company-holiday-${year}-${i}`,
-    summary: h.name,
-    start: h.date,
-    end: addDays(h.date, 1), // End date is exclusive
-    calendarId: COMPANY_HOLIDAYS_ID,
-    calendarName: "Company Holidays",
-    color: COMPANY_HOLIDAYS_COLOR,
-    isAllDay: true,
-    isRecurring: false,
-  }));
-}
-
 const CACHE_TTL = 60; // 1 minute
 
 export async function getCalendarList(
@@ -74,11 +34,13 @@ export async function getCalendarList(
   cache: KVNamespace,
   userId: string,
 ): Promise<GoogleCalendar[]> {
-  // Check cache first
+  // Check cache first; refetch if the cached shape doesn't validate
   const cacheKey = `calendars:${userId}`;
-  const cached = await cache.get(cacheKey, "json");
-  if (cached) {
-    return cached as GoogleCalendar[];
+  const cached = cachedCalendarsSchema.safeParse(
+    await cache.get(cacheKey, "json"),
+  );
+  if (cached.success) {
+    return cached.data;
   }
 
   const res = await fetch(
@@ -87,8 +49,9 @@ export async function getCalendarList(
   );
 
   if (!res.ok) {
-    console.error("Failed to fetch calendar list:", res.status);
-    return [];
+    throw new Error(
+      `Google Calendar API error (${res.status}) fetching calendar list`,
+    );
   }
 
   const data = await res.json();
@@ -141,11 +104,13 @@ export async function getEvents(
   cache: KVNamespace,
   userId: string,
 ): Promise<CalendarEvent[]> {
-  // Check cache first
+  // Check cache first; refetch if the cached shape doesn't validate
   const cacheKey = `events:${userId}:${year}`;
-  const cached = await cache.get(cacheKey, "json");
-  if (cached) {
-    return cached as CalendarEvent[];
+  const cached = cachedEventsSchema.safeParse(
+    await cache.get(cacheKey, "json"),
+  );
+  if (cached.success) {
+    return cached.data;
   }
 
   const timeMin = `${year}-01-01T00:00:00Z`;
@@ -173,6 +138,14 @@ export async function getEvents(
       });
 
       if (!res.ok) {
+        // Auth failures affect every calendar - surface them to the user.
+        // Other per-calendar errors just skip that calendar so one flaky
+        // shared calendar doesn't blank the whole year.
+        if (res.status === 401 || res.status === 403) {
+          throw new Error(
+            `Google Calendar API auth error (${res.status}) fetching events`,
+          );
+        }
         console.error(`Failed to fetch ${calendar.id}: ${res.status}`);
         return [];
       }

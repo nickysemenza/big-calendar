@@ -65,6 +65,21 @@ export const googleEventsResponseSchema = z.object({
 
 export type GoogleEventsResponse = z.infer<typeof googleEventsResponseSchema>;
 
+// Cached values read back from KV - validate instead of trusting the cast
+export const cachedCalendarsSchema = z.array(googleCalendarSchema);
+
+// Google OAuth token endpoint responses
+export const googleTokenResponseSchema = z.object({
+  access_token: z.string(),
+  expires_in: z.number(),
+  refresh_token: z.string().optional(),
+});
+
+export const googleTokenErrorSchema = z.object({
+  error: z.string(),
+  error_description: z.string().optional(),
+});
+
 // Auth response
 export const authResponseSchema = z.object({
   url: z.string().optional(),
@@ -89,6 +104,8 @@ export const calendarEventSchema = z.object({
 });
 
 export type CalendarEvent = z.infer<typeof calendarEventSchema>;
+
+export const cachedEventsSchema = z.array(calendarEventSchema);
 
 export const calendarInfoSchema = z.object({
   id: z.string(),
