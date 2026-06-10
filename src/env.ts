@@ -1,7 +1,11 @@
 import type { Session, User } from "better-auth";
-import type { GoogleCalendar, CalendarEvent, CalendarInfo } from "./lib/validators";
+import type {
+  CalendarEvent,
+  CalendarInfo,
+  GoogleCalendar,
+} from "./lib/validators";
 
-export type { GoogleCalendar, CalendarEvent, CalendarInfo };
+export type { CalendarEvent, CalendarInfo, GoogleCalendar };
 
 export type Bindings = {
   DB: D1Database;
@@ -23,9 +27,9 @@ export function shortHash(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash; // Convert to 32-bit integer
   }
   // Convert to positive hex and take first 4 chars
-  return Math.abs(hash).toString(16).slice(0, 4).padStart(4, '0');
+  return Math.abs(hash).toString(16).slice(0, 4).padStart(4, "0");
 }

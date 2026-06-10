@@ -9,9 +9,18 @@ export const calendarQuerySchema = z.object({
   view: viewSchema.optional().default("continuous"),
   hide: z.string().optional(), // comma-separated calendar hashes to hide
   hideEvents: z.string().optional(), // comma-separated event name hashes to hide
-  timed: z.enum(["true", "false"]).optional().transform((v) => v === "true"),
-  hideRecurring: z.enum(["true", "false"]).optional().transform((v) => v === "true"),
-  wideMode: z.enum(["true", "false"]).optional().transform((v) => v === "true"),
+  timed: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
+  hideRecurring: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
+  wideMode: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((v) => v === "true"),
 });
 
 export type CalendarQuery = z.infer<typeof calendarQuerySchema>;
@@ -36,15 +45,40 @@ export const googleEventsResponseSchema = z.object({
       z.object({
         id: z.string(),
         summary: z.string().optional(),
-        start: z.object({ date: z.string().optional(), dateTime: z.string().optional() }).optional(),
-        end: z.object({ date: z.string().optional(), dateTime: z.string().optional() }).optional(),
+        start: z
+          .object({
+            date: z.string().optional(),
+            dateTime: z.string().optional(),
+          })
+          .optional(),
+        end: z
+          .object({
+            date: z.string().optional(),
+            dateTime: z.string().optional(),
+          })
+          .optional(),
         recurringEventId: z.string().optional(),
-      })
+      }),
     )
     .optional(),
 });
 
 export type GoogleEventsResponse = z.infer<typeof googleEventsResponseSchema>;
+
+// Cached values read back from KV - validate instead of trusting the cast
+export const cachedCalendarsSchema = z.array(googleCalendarSchema);
+
+// Google OAuth token endpoint responses
+export const googleTokenResponseSchema = z.object({
+  access_token: z.string(),
+  expires_in: z.number(),
+  refresh_token: z.string().optional(),
+});
+
+export const googleTokenErrorSchema = z.object({
+  error: z.string(),
+  error_description: z.string().optional(),
+});
 
 // Auth response
 export const authResponseSchema = z.object({
@@ -70,6 +104,8 @@ export const calendarEventSchema = z.object({
 });
 
 export type CalendarEvent = z.infer<typeof calendarEventSchema>;
+
+export const cachedEventsSchema = z.array(calendarEventSchema);
 
 export const calendarInfoSchema = z.object({
   id: z.string(),

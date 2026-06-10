@@ -1,5 +1,10 @@
 import type { CalendarInfo } from "../env";
-import type { View, BuildUrlOverrides } from "../lib/validators";
+import {
+  type BuildUrlOverrides,
+  buildCalendarUrl,
+  type CalendarUrlState,
+} from "../lib/url";
+import type { View } from "../lib/validators";
 
 interface Props {
   year: number;
@@ -9,11 +14,23 @@ interface Props {
   showTimed: boolean;
   hideRecurring: boolean;
   wideMode: boolean;
+  hideEvents: string;
   hiddenEventCount: number;
   totalEvents: number;
 }
 
-export function Header({ year, view, calendars, userEmail, showTimed, hideRecurring, wideMode, hiddenEventCount, totalEvents }: Props) {
+export function Header({
+  year,
+  view,
+  calendars,
+  userEmail,
+  showTimed,
+  hideRecurring,
+  wideMode,
+  hideEvents,
+  hiddenEventCount,
+  totalEvents,
+}: Props) {
   const now = new Date();
   const currentYear = now.getFullYear();
 
@@ -36,25 +53,19 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
     .map((c) => c.hash)
     .join(",");
 
+  const urlState: CalendarUrlState = {
+    year,
+    view,
+    hide: currentHideParam || undefined,
+    hideEvents: hideEvents || undefined,
+    timed: showTimed,
+    hideRecurring,
+    wideMode,
+  };
+
   // Build URL with optional overrides
   function buildUrl(overrides: BuildUrlOverrides = {}): string {
-    const params = new URLSearchParams();
-    params.set("year", String(overrides.year ?? year));
-    params.set("view", overrides.view ?? view);
-
-    const timedValue = overrides.timed ?? showTimed;
-    if (timedValue) params.set("timed", "true");
-
-    const recurringValue = overrides.hideRecurring ?? hideRecurring;
-    if (recurringValue) params.set("hideRecurring", "true");
-
-    const wideModeValue = overrides.wideMode ?? wideMode;
-    if (wideModeValue) params.set("wideMode", "true");
-
-    const hideValue = overrides.hide ?? currentHideParam;
-    if (hideValue) params.set("hide", hideValue);
-
-    return `/?${params.toString()}`;
+    return buildCalendarUrl(urlState, overrides);
   }
 
   // Build URL for toggling a calendar's visibility
@@ -80,7 +91,9 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
             {year}
           </h1>
           {yearProgress !== null && (
-            <span class="text-xs text-gray-500 font-normal">{yearProgress}%</span>
+            <span class="text-xs text-gray-500 font-normal">
+              {yearProgress}%
+            </span>
           )}
           <span class="text-xs text-gray-500 font-normal ml-1 pl-1 border-l border-gray-300">
             {totalEvents}
@@ -125,7 +138,9 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
         <a
           href={buildUrl({ timed: !showTimed })}
           class={`flex items-center gap-1 px-1.5 py-0.5 text-xs rounded cursor-pointer ${
-            showTimed ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100 text-gray-500"
+            showTimed
+              ? "bg-blue-100 text-blue-700"
+              : "hover:bg-gray-100 text-gray-500"
           }`}
           title={showTimed ? "Hide hourly events" : "Show hourly events"}
         >
@@ -134,16 +149,22 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
         <a
           href={buildUrl({ hideRecurring: !hideRecurring })}
           class={`flex items-center gap-1 px-1.5 py-0.5 text-xs rounded cursor-pointer ${
-            hideRecurring ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100 text-gray-500"
+            hideRecurring
+              ? "bg-blue-100 text-blue-700"
+              : "hover:bg-gray-100 text-gray-500"
           }`}
-          title={hideRecurring ? "Show recurring events" : "Hide recurring events"}
+          title={
+            hideRecurring ? "Show recurring events" : "Hide recurring events"
+          }
         >
           <span>↻</span>
         </a>
         <a
           href={buildUrl({ wideMode: !wideMode })}
           class={`flex items-center gap-1 px-1.5 py-0.5 text-xs rounded cursor-pointer ${
-            wideMode ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100 text-gray-500"
+            wideMode
+              ? "bg-blue-100 text-blue-700"
+              : "hover:bg-gray-100 text-gray-500"
           }`}
           title={wideMode ? "Normal aspect ratio" : "Wide aspect ratio"}
         >
@@ -156,29 +177,31 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
             class="flex flex-wrap gap-x-2 gap-y-0 ml-1 pl-2 border-l border-gray-200"
             style="max-width: 500px;"
           >
-            {calendars.filter((c) => c.eventCount > 0).map((cal) => (
-              <a
-                key={cal.id}
-                href={buildCalendarToggleUrl(cal.id)}
-                class="flex items-center gap-0.5 px-0.5 text-[10px] hover:bg-gray-100 rounded cursor-pointer"
-                title={cal.name}
-              >
-                <span
-                  class={`w-2 h-2 rounded-sm flex-shrink-0 ${
-                    !cal.hidden
-                      ? ""
-                      : "border border-gray-300 bg-white"
-                  }`}
-                  style={!cal.hidden ? `background-color: ${cal.color}` : ""}
-                />
-                <span
-                  class={`truncate max-w-[80px] ${cal.hidden ? "text-gray-400 line-through" : "text-gray-700"}`}
+            {calendars
+              .filter((c) => c.eventCount > 0)
+              .map((cal) => (
+                <a
+                  key={cal.id}
+                  href={buildCalendarToggleUrl(cal.id)}
+                  class="flex items-center gap-0.5 px-0.5 text-[10px] hover:bg-gray-100 rounded cursor-pointer"
+                  title={cal.name}
                 >
-                  {cal.name}
-                </span>
-                <span class="text-gray-400 flex-shrink-0">{cal.eventCount}</span>
-              </a>
-            ))}
+                  <span
+                    class={`w-2 h-2 rounded-sm flex-shrink-0 ${
+                      !cal.hidden ? "" : "border border-gray-300 bg-white"
+                    }`}
+                    style={!cal.hidden ? `background-color: ${cal.color}` : ""}
+                  />
+                  <span
+                    class={`truncate max-w-[80px] ${cal.hidden ? "text-gray-400 line-through" : "text-gray-700"}`}
+                  >
+                    {cal.name}
+                  </span>
+                  <span class="text-gray-400 flex-shrink-0">
+                    {cal.eventCount}
+                  </span>
+                </a>
+              ))}
           </div>
         )}
 
@@ -191,11 +214,19 @@ export function Header({ year, view, calendars, userEmail, showTimed, hideRecurr
         )}
       </div>
       <div class="flex items-center gap-2 text-xs text-gray-600">
-        <a href="/refresh" class="text-gray-400 hover:text-gray-700" title="Refresh">
+        <a
+          href="/refresh"
+          class="text-gray-400 hover:text-gray-700"
+          title="Refresh"
+        >
           ↻
         </a>
         <span class="text-gray-400 truncate max-w-[120px]">{userEmail}</span>
-        <a href="/signout" class="text-gray-400 hover:text-gray-700" title="Sign out">
+        <a
+          href="/signout"
+          class="text-gray-400 hover:text-gray-700"
+          title="Sign out"
+        >
           ⏻
         </a>
       </div>

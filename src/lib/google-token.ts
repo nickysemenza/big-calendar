@@ -2,6 +2,10 @@ import { eq } from "drizzle-orm";
 import type { Bindings } from "../env";
 import type { Database } from "./db";
 import { accounts } from "./schema";
+import {
+  googleTokenErrorSchema,
+  googleTokenResponseSchema,
+} from "./validators";
 
 export interface TokenRefreshResult {
   accessToken: string;
@@ -12,7 +16,7 @@ export interface TokenRefreshResult {
 export class TokenRefreshFailedError extends Error {
   constructor(
     public readonly errorCode: string,
-    message: string
+    message: string,
   ) {
     super(message);
     this.name = "TokenRefreshFailedError";
@@ -28,7 +32,7 @@ export class TokenRefreshFailedError extends Error {
  */
 export async function refreshGoogleToken(
   refreshToken: string,
-  env: Bindings
+  env: Bindings,
 ): Promise<TokenRefreshResult> {
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -44,21 +48,25 @@ export async function refreshGoogleToken(
   });
 
   if (!response.ok) {
-    const error = (await response.json()) as {
-      error: string;
-      error_description?: string;
-    };
+    // A non-JSON or unexpected error body must still produce a
+    // TokenRefreshFailedError so requiresReauth() stays accurate
+    const error = googleTokenErrorSchema.safeParse(
+      await response.json().catch(() => null),
+    );
+    if (error.success) {
+      throw new TokenRefreshFailedError(
+        error.data.error,
+        error.data.error_description || "Token refresh failed",
+      );
+    }
     throw new TokenRefreshFailedError(
-      error.error,
-      error.error_description || "Token refresh failed"
+      "unknown_error",
+      `Token refresh failed with HTTP ${response.status}`,
     );
   }
 
-  const data = (await response.json()) as {
-    access_token: string;
-    expires_in: number;
-    refresh_token?: string;
-  };
+  // A malformed success response should throw loudly
+  const data = googleTokenResponseSchema.parse(await response.json());
 
   return {
     accessToken: data.access_token,
@@ -77,7 +85,7 @@ export async function updateAccountTokens(
     accessToken: string;
     accessTokenExpiresAt: Date;
     refreshToken?: string;
-  }
+  },
 ): Promise<void> {
   await db
     .update(accounts)

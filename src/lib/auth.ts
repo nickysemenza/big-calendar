@@ -1,9 +1,8 @@
-import type { D1Database } from "@cloudflare/workers-types";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { drizzle } from "drizzle-orm/d1";
-import * as schema from "./schema";
 import type { Bindings } from "../env";
+import * as schema from "./schema";
 
 // Create auth instance for runtime usage
 export function createAuth(env: Bindings) {

@@ -1,103 +1,81 @@
 import type { CalendarEvent, GoogleCalendar } from "../env";
-import { googleCalendarListSchema, googleCalendarSchema, googleEventsResponseSchema } from "./validators";
-import { toDateString, toTimeString, addDays } from "./dates";
+import {
+  COMPANY_HOLIDAYS_COLOR,
+  COMPANY_HOLIDAYS_ID,
+  getCompanyHolidayEvents,
+} from "./company-holidays";
+import { addDays, toDateString, toTimeString } from "./dates";
+import {
+  cachedCalendarsSchema,
+  cachedEventsSchema,
+  googleCalendarListSchema,
+  googleCalendarSchema,
+  googleEventsResponseSchema,
+} from "./validators";
 
 // Special Google system calendars that don't appear in calendarList
 const SPECIAL_CALENDARS = [
-  { id: "addressbook#contacts@group.v.calendar.google.com", name: "Birthdays", color: "#9a9cff" },
-  { id: "en.usa#holiday@group.v.calendar.google.com", name: "Holidays in United States", color: "#4caf50" },
+  {
+    id: "addressbook#contacts@group.v.calendar.google.com",
+    name: "Birthdays",
+    color: "#9a9cff",
+  },
+  {
+    id: "en.usa#holiday@group.v.calendar.google.com",
+    name: "Holidays in United States",
+    color: "#4caf50",
+  },
 ];
-
-// Virtual calendar for company holidays
-const COMPANY_HOLIDAYS_ID = "virtual:company-holidays";
-const COMPANY_HOLIDAYS_COLOR = "#e91e63";
-
-const COMPANY_HOLIDAYS: Record<number, Array<{ date: string; name: string }>> = {
-  2025: [
-    { date: "2025-01-01", name: "New Year's Day" },
-    { date: "2025-01-20", name: "Martin Luther King Jr. Day" },
-    { date: "2025-02-17", name: "President's Day" },
-    { date: "2025-05-26", name: "Memorial Day" },
-    { date: "2025-07-04", name: "Independence Day" },
-    { date: "2025-09-01", name: "Labor Day" },
-    { date: "2025-11-27", name: "Thanksgiving" },
-    { date: "2025-11-28", name: "Day After Thanksgiving" },
-    { date: "2025-12-25", name: "Christmas" },
-  ],
-  2026: [
-    { date: "2026-01-01", name: "New Year's Day" },
-    { date: "2026-01-19", name: "Martin Luther King Jr. Day" },
-    { date: "2026-02-16", name: "President's Day" },
-    { date: "2026-05-25", name: "Memorial Day" },
-    { date: "2026-07-03", name: "Independence Day (observed)" },
-    { date: "2026-09-07", name: "Labor Day" },
-    { date: "2026-11-26", name: "Thanksgiving" },
-    { date: "2026-11-27", name: "Day After Thanksgiving" },
-    { date: "2026-12-25", name: "Christmas" },
-  ],
-};
-
-function getCompanyHolidayEvents(year: number): CalendarEvent[] {
-  const holidays = COMPANY_HOLIDAYS[year] || [];
-  return holidays.map((h, i) => ({
-    id: `company-holiday-${year}-${i}`,
-    summary: h.name,
-    start: h.date,
-    end: addDays(h.date, 1), // End date is exclusive
-    calendarId: COMPANY_HOLIDAYS_ID,
-    calendarName: "Company Holidays",
-    color: COMPANY_HOLIDAYS_COLOR,
-    isAllDay: true,
-    isRecurring: false,
-  }));
-}
 
 const CACHE_TTL = 60; // 1 minute
 
 export async function getCalendarList(
   accessToken: string,
   cache: KVNamespace,
-  userId: string
+  userId: string,
 ): Promise<GoogleCalendar[]> {
-  // Check cache first
+  // Check cache first; refetch if the cached shape doesn't validate
   const cacheKey = `calendars:${userId}`;
-  const cached = await cache.get(cacheKey, "json");
-  if (cached) {
-    return cached as GoogleCalendar[];
+  const cached = cachedCalendarsSchema.safeParse(
+    await cache.get(cacheKey, "json"),
+  );
+  if (cached.success) {
+    return cached.data;
   }
 
   const res = await fetch(
     "https://www.googleapis.com/calendar/v3/users/me/calendarList",
-    { headers: { Authorization: `Bearer ${accessToken}` } }
+    { headers: { Authorization: `Bearer ${accessToken}` } },
   );
 
   if (!res.ok) {
-    console.error("Failed to fetch calendar list:", res.status);
-    return [];
+    throw new Error(
+      `Google Calendar API error (${res.status}) fetching calendar list`,
+    );
   }
 
   const data = await res.json();
   const calendars = googleCalendarListSchema.parse(data).items;
 
   // Try to add special calendars that don't appear in calendarList (in parallel)
-  const specialFetches = SPECIAL_CALENDARS
-    .filter((special) => !calendars.some((c) => c.id === special.id))
-    .map(async (special) => {
-      const specialRes = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(special.id)}`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
+  const specialFetches = SPECIAL_CALENDARS.filter(
+    (special) => !calendars.some((c) => c.id === special.id),
+  ).map(async (special) => {
+    const specialRes = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(special.id)}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
 
-      if (specialRes.ok) {
-        const cal = googleCalendarSchema.parse(await specialRes.json());
-        return {
-          id: cal.id,
-          summary: cal.summary || special.name,
-          backgroundColor: cal.backgroundColor || special.color,
-        };
-      }
-      return null;
-    });
+    if (specialRes.ok) {
+      const cal = googleCalendarSchema.parse(await specialRes.json());
+      return {
+        id: cal.id,
+        summary: cal.summary || special.name,
+        backgroundColor: cal.backgroundColor || special.color,
+      };
+    }
+    return null;
+  });
 
   const specialResults = await Promise.all(specialFetches);
   for (const cal of specialResults) {
@@ -112,7 +90,9 @@ export async function getCalendarList(
   });
 
   // Store in cache
-  await cache.put(cacheKey, JSON.stringify(calendars), { expirationTtl: CACHE_TTL });
+  await cache.put(cacheKey, JSON.stringify(calendars), {
+    expirationTtl: CACHE_TTL,
+  });
 
   return calendars;
 }
@@ -122,13 +102,15 @@ export async function getEvents(
   calendars: GoogleCalendar[],
   year: number,
   cache: KVNamespace,
-  userId: string
+  userId: string,
 ): Promise<CalendarEvent[]> {
-  // Check cache first
+  // Check cache first; refetch if the cached shape doesn't validate
   const cacheKey = `events:${userId}:${year}`;
-  const cached = await cache.get(cacheKey, "json");
-  if (cached) {
-    return cached as CalendarEvent[];
+  const cached = cachedEventsSchema.safeParse(
+    await cache.get(cacheKey, "json"),
+  );
+  if (cached.success) {
+    return cached.data;
   }
 
   const timeMin = `${year}-01-01T00:00:00Z`;
@@ -144,7 +126,7 @@ export async function getEvents(
     .filter((calendar) => !calendar.id.startsWith("virtual:"))
     .map(async (calendar) => {
       const url = new URL(
-        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.id)}/events`
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.id)}/events`,
       );
       url.searchParams.set("timeMin", timeMin);
       url.searchParams.set("timeMax", timeMax);
@@ -156,6 +138,14 @@ export async function getEvents(
       });
 
       if (!res.ok) {
+        // Auth failures affect every calendar - surface them to the user.
+        // Other per-calendar errors just skip that calendar so one flaky
+        // shared calendar doesn't blank the whole year.
+        if (res.status === 401 || res.status === 403) {
+          throw new Error(
+            `Google Calendar API auth error (${res.status}) fetching events`,
+          );
+        }
         console.error(`Failed to fetch ${calendar.id}: ${res.status}`);
         return [];
       }
@@ -183,14 +173,18 @@ export async function getEvents(
         // Timed events (have start.dateTime) - always fetch for caching
         else if (item.start?.dateTime) {
           const startDate = toDateString(item.start.dateTime);
-          const endDate = item.end?.dateTime ? toDateString(item.end.dateTime) : startDate;
+          const endDate = item.end?.dateTime
+            ? toDateString(item.end.dateTime)
+            : startDate;
           calendarEvents.push({
             id: item.id,
             summary: item.summary || "(No title)",
             start: startDate,
             end: endDate === startDate ? addDays(startDate, 1) : endDate,
             startTime: toTimeString(item.start.dateTime),
-            endTime: item.end?.dateTime ? toTimeString(item.end.dateTime) : undefined,
+            endTime: item.end?.dateTime
+              ? toTimeString(item.end.dateTime)
+              : undefined,
             calendarId: calendar.id,
             calendarName: calendar.summary,
             color: calendar.backgroundColor || "#4285f4",
@@ -208,7 +202,9 @@ export async function getEvents(
   }
 
   // Store in cache
-  await cache.put(cacheKey, JSON.stringify(events), { expirationTtl: CACHE_TTL });
+  await cache.put(cacheKey, JSON.stringify(events), {
+    expirationTtl: CACHE_TTL,
+  });
 
   return events;
 }
