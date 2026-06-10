@@ -1,12 +1,4 @@
 // Shared helper functions for UI components
-import { DEFAULT_SIZES, type SizeConfig } from "../../lib/segments";
-
-// Sizes for inline styles that can't use CSS media queries.
-// This renders server-side only (no hydration), so there's no window to
-// query — large-screen styling is handled by Tailwind 2xl: classes instead.
-export function useResponsiveSizes(): SizeConfig {
-  return { ...DEFAULT_SIZES, isLarge: false };
-}
 
 // Background class for day cells
 export function getDayBackgroundClass(options: {
@@ -32,21 +24,19 @@ export function getDayNumberClass(options: {
   return "text-gray-600";
 }
 
-// Generate CSS background for multi-color events (striped pattern)
+// Generate CSS background for multi-color events: horizontal bands, which
+// read more calmly on ~10px-tall bars than diagonal stripes
 export function getStripedBackground(colors: string[]): string {
   if (colors.length === 1) {
     return colors[0];
   }
 
-  // Bold diagonal stripes
-  const stripeWidth = 8; // pixels per color band
-  const stops = colors.flatMap((color, i) => {
-    const start = i * stripeWidth;
-    const end = (i + 1) * stripeWidth;
-    return [`${color} ${start}px`, `${color} ${end}px`];
-  });
+  const bandSize = 100 / colors.length;
+  const stops = colors.map(
+    (color, i) => `${color} ${i * bandSize}% ${(i + 1) * bandSize}%`,
+  );
 
-  return `repeating-linear-gradient(135deg, ${stops.join(", ")})`;
+  return `linear-gradient(to bottom, ${stops.join(", ")})`;
 }
 
 // Format date range for display (e.g., "May 1 – May 7")

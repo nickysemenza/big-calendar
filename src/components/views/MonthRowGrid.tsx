@@ -12,7 +12,7 @@ import {
 } from "../../lib/segments";
 import { DayPopover } from "../ui/DayPopover";
 import { EventSegment } from "../ui/EventSegment";
-import { getDayBackgroundClass, useResponsiveSizes } from "../ui/helpers";
+import { getDayBackgroundClass } from "../ui/helpers";
 
 // Month-row grid: one row per month (31 cols × 12 rows)
 export function MonthRowGrid({
@@ -26,7 +26,6 @@ export function MonthRowGrid({
 }) {
   const today = formatDate(new Date());
   const COLS = 31;
-  const sizes = useResponsiveSizes();
 
   // Consolidate duplicate events (same name + same dates)
   const consolidatedEvents = consolidateEvents(events, "occurrence");
@@ -45,13 +44,11 @@ export function MonthRowGrid({
   const { segmentsByRow, segmentSlots, maxSlotPerRow } =
     computeMonthEventSegments(consolidatedEvents, year);
 
-  const monthLabelWidth = sizes.isLarge ? 32 : 24;
-
   return (
     <div class="flex-1 bg-white p-1 overflow-auto">
       <div
-        class="grid h-full"
-        style={`grid-template-columns: ${monthLabelWidth}px repeat(31, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, 12, sizes)}; gap: 1px; background: #e5e7eb;`}
+        class="grid h-full gap-px bg-gray-200"
+        style={`grid-template-columns: var(--cal-month-label-w) repeat(31, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, 12)};`}
       >
         {months.map((m) => {
           const isOddMonth = m.monthIdx % 2 === 1;
@@ -89,6 +86,7 @@ export function MonthRowGrid({
                   isWeekend,
                   isOddMonth,
                 });
+                const isPast = dateStr !== null && dateStr < today;
 
                 return (
                   <DayPopover
@@ -100,7 +98,7 @@ export function MonthRowGrid({
                     isBottomHalf={m.monthIdx >= 6}
                   >
                     <div
-                      class={`relative px-0.5 min-h-0 h-full ${bgClass} ${isToday ? "ring-1 ring-orange-400 ring-inset z-10" : ""}`}
+                      class={`relative px-0.5 min-h-0 h-full ${bgClass} ${isPast ? "day-past" : ""} ${isToday ? "ring-1 ring-orange-400 ring-inset z-10" : ""}`}
                     >
                       {day && (
                         <div class="flex items-baseline justify-between text-[8px] 2xl:text-[10px] leading-none">
@@ -118,10 +116,8 @@ export function MonthRowGrid({
                       {cellSegments.map((seg, segIdx) => (
                         <EventSegment
                           key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
-                          event={seg.event}
+                          segment={seg}
                           slot={segmentSlots.get(seg) || 0}
-                          span={seg.colEnd - seg.colStart}
-                          sizes={sizes}
                           headerOffset={-2}
                         />
                       ))}

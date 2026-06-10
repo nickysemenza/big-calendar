@@ -1,25 +1,13 @@
 import type { ConsolidatedEvent } from "./consolidate";
 
-// Size configuration for grid layouts
-export interface SizeConfig {
-  minRowHeight: number;
-  headerHeight: number;
-  eventHeight: number;
-  isLarge?: boolean;
-}
-
-export const DEFAULT_SIZES: SizeConfig = {
-  minRowHeight: 26,
-  headerHeight: 11,
-  eventHeight: 10,
-};
-
 // Event segment data for positioned event bars
 export interface EventSegmentData {
   event: ConsolidatedEvent;
   rowStart: number;
   colStart: number;
   colEnd: number; // exclusive
+  isEventStart: boolean; // false when the event continues from an earlier row/clamp
+  isEventEnd: boolean; // false when the event continues past this segment
 }
 
 export interface SegmentLayout {
@@ -46,10 +34,13 @@ export function computeEventSegments(
 
     let startIdx = dateToIndex.get(startDate);
     let endIdx = dateToIndex.get(endDate);
+    let startClamped = false;
+    let endClamped = false;
 
     if (startIdx === undefined) {
       if (startDate < firstDateStr) {
         startIdx = 0;
+        startClamped = true;
       } else {
         continue;
       }
@@ -58,6 +49,7 @@ export function computeEventSegments(
     if (endIdx === undefined) {
       if (endDate > lastDateStr) {
         endIdx = totalCells;
+        endClamped = true;
       } else {
         continue;
       }
@@ -68,12 +60,15 @@ export function computeEventSegments(
       const rowStart = Math.floor(currentIdx / cols);
       const rowStartCol = currentIdx % cols;
       const rowEndCol = Math.min(cols, rowStartCol + (endIdx - currentIdx));
+      const segmentEndIdx = rowStart * cols + rowEndCol;
 
       eventSegments.push({
         event,
         rowStart,
         colStart: rowStartCol,
         colEnd: rowEndCol,
+        isEventStart: currentIdx === startIdx && !startClamped,
+        isEventEnd: segmentEndIdx === endIdx && !endClamped,
       });
 
       currentIdx = (rowStart + 1) * cols;
@@ -95,10 +90,18 @@ export function computeMonthEventSegments(
   for (const event of events) {
     let startDate = event.start;
     let endDate = event.end;
+    let startClamped = false;
+    let endClamped = false;
 
     // Clamp to year
-    if (startDate < firstDateStr) startDate = firstDateStr;
-    if (endDate > `${year + 1}-01-01`) endDate = `${year + 1}-01-01`;
+    if (startDate < firstDateStr) {
+      startDate = firstDateStr;
+      startClamped = true;
+    }
+    if (endDate > `${year + 1}-01-01`) {
+      endDate = `${year + 1}-01-01`;
+      endClamped = true;
+    }
     if (startDate >= endDate) continue;
 
     // Parse dates
@@ -126,6 +129,8 @@ export function computeMonthEventSegments(
         rowStart: month,
         colStart: segStartCol,
         colEnd: segEndCol,
+        isEventStart: month === startMonth && !startClamped,
+        isEventEnd: month === endMonth && !endClamped,
       });
     }
   }
@@ -172,21 +177,24 @@ export function assignSlots(eventSegments: EventSegmentData[]): SegmentLayout {
   return { segmentsByRow, segmentSlots, maxSlotPerRow };
 }
 
-// CSS grid-template-rows: each row fits its stacked events but can grow
+// CSS grid-template-rows: each row fits its stacked events but can grow.
+// Sizes come from the --cal-* custom properties in style.css so that the
+// 2xl media query (not JS, which only runs server-side) picks the values.
 export function computeRowHeights(
   maxSlotPerRow: Map<number, number>,
   rowCount: number,
-  sizes: SizeConfig = DEFAULT_SIZES,
 ): string {
   const heights: string[] = [];
   for (let row = 0; row < rowCount; row++) {
     const maxSlot = maxSlotPerRow.get(row) ?? -1;
-    const minHeight = Math.max(
-      sizes.minRowHeight,
-      sizes.headerHeight + (maxSlot + 1) * sizes.eventHeight + 4,
-    );
     // Use minmax so rows fill available space but respect minimum for events
-    heights.push(`minmax(${minHeight}px, 1fr)`);
+    if (maxSlot < 0) {
+      heights.push("minmax(var(--cal-row-min), 1fr)");
+    } else {
+      heights.push(
+        `minmax(max(var(--cal-row-min), calc(var(--cal-header-h) + ${maxSlot + 1} * var(--cal-event-h) + 4px)), 1fr)`,
+      );
+    }
   }
   return heights.join(" ");
 }

@@ -9,11 +9,7 @@ import {
 import { computeEventSegments, computeRowHeights } from "../../lib/segments";
 import { DayPopover } from "../ui/DayPopover";
 import { EventSegment } from "../ui/EventSegment";
-import {
-  getDayBackgroundClass,
-  getDayNumberClass,
-  useResponsiveSizes,
-} from "../ui/helpers";
+import { getDayBackgroundClass, getDayNumberClass } from "../ui/helpers";
 
 // Weekends-aligned grid: rows of whole weeks so Sat/Sun line up in columns
 // (28 cols = 4 weeks × 7 days, padded with prev/next-year days)
@@ -30,7 +26,6 @@ export function WeekendsAlignedGrid({
 }) {
   const COLS = wideMode ? 21 : 28; // 3 or 4 weeks × 7 days
   const today = formatDate(new Date());
-  const sizes = useResponsiveSizes();
 
   // Consolidate duplicate events (same name + same dates)
   const consolidatedEvents = consolidateEvents(events, "occurrence");
@@ -110,7 +105,7 @@ export function WeekendsAlignedGrid({
       </div>
       <div
         class="grid gap-px bg-gray-200 h-[calc(100%-14px)]"
-        style={`grid-template-columns: repeat(${COLS}, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, rowCount, sizes)};`}
+        style={`grid-template-columns: repeat(${COLS}, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, rowCount)};`}
       >
         {cells.map((cell, idx) => {
           const { date: day, dateStr, isInYear } = cell;
@@ -139,6 +134,9 @@ export function WeekendsAlignedGrid({
             isToday,
             isFirstOfMonth,
           });
+          const isPast = dateStr < today;
+          const monthBoundary =
+            isFirstOfMonth && isInYear ? "border-l-2 border-orange-400" : "";
 
           return (
             <DayPopover
@@ -150,7 +148,7 @@ export function WeekendsAlignedGrid({
               isBottomHalf={row >= rowCount / 2}
             >
               <div
-                class={`relative px-0.5 min-h-0 h-full ${bgClass} ${isToday ? "ring-1 ring-orange-400 ring-inset z-10" : ""}`}
+                class={`relative px-0.5 min-h-0 h-full ${bgClass} ${monthBoundary} ${isPast ? "day-past" : ""} ${isToday ? "ring-1 ring-orange-400 ring-inset z-10" : ""}`}
               >
                 <div class="flex items-baseline gap-px text-[8px] 2xl:text-[10px] leading-none">
                   {isFirstOfMonth && isInYear && (
@@ -165,10 +163,8 @@ export function WeekendsAlignedGrid({
                   cellSegments.map((seg, segIdx) => (
                     <EventSegment
                       key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
-                      event={seg.event}
+                      segment={seg}
                       slot={segmentSlots.get(seg) || 0}
-                      span={seg.colEnd - seg.colStart}
-                      sizes={sizes}
                     />
                   ))}
               </div>

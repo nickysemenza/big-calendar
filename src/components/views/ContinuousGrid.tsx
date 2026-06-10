@@ -9,11 +9,7 @@ import {
 import { computeEventSegments, computeRowHeights } from "../../lib/segments";
 import { DayPopover } from "../ui/DayPopover";
 import { EventSegment } from "../ui/EventSegment";
-import {
-  getDayBackgroundClass,
-  getDayNumberClass,
-  useResponsiveSizes,
-} from "../ui/helpers";
+import { getDayBackgroundClass, getDayNumberClass } from "../ui/helpers";
 
 // Continuous grid: every day of the year in reading order (25 cols × ~15 rows)
 export function ContinuousGrid({
@@ -30,7 +26,6 @@ export function ContinuousGrid({
   const COLS = wideMode ? 15 : 25;
   const allDays = getAllDaysOfYear(year);
   const today = formatDate(new Date());
-  const sizes = useResponsiveSizes();
 
   // Consolidate duplicate events (same name + same dates)
   const consolidatedEvents = consolidateEvents(events, "occurrence");
@@ -54,7 +49,7 @@ export function ContinuousGrid({
     <div class="flex-1 bg-white p-1 overflow-auto">
       <div
         class="grid gap-px bg-gray-200 h-full"
-        style={`grid-template-columns: repeat(${COLS}, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, rowCount, sizes)};`}
+        style={`grid-template-columns: repeat(${COLS}, 1fr); grid-template-rows: ${computeRowHeights(maxSlotPerRow, rowCount)};`}
       >
         {allDays.map((day, idx) => {
           const dateStr = formatDate(day);
@@ -76,6 +71,10 @@ export function ContinuousGrid({
           );
           const bgClass = getDayBackgroundClass({ isWeekend, isOddMonth });
           const dayNumClass = getDayNumberClass({ isToday, isFirstOfMonth });
+          const isPast = dateStr < today;
+          const monthBoundary = isFirstOfMonth
+            ? "border-l-2 border-orange-400"
+            : "";
 
           return (
             <DayPopover
@@ -87,7 +86,7 @@ export function ContinuousGrid({
               isBottomHalf={row >= rowCount / 2}
             >
               <div
-                class={`relative px-0.5 min-h-0 h-full ${bgClass} ${isToday ? "ring-1 ring-orange-400 ring-inset z-10" : ""}`}
+                class={`relative px-0.5 min-h-0 h-full ${bgClass} ${monthBoundary} ${isPast ? "day-past" : ""} ${isToday ? "ring-1 ring-orange-400 ring-inset z-10" : ""}`}
               >
                 <div class="flex items-baseline justify-between text-[8px] 2xl:text-[10px] leading-none">
                   <span class="flex items-baseline gap-px">
@@ -104,10 +103,8 @@ export function ContinuousGrid({
                 {cellSegments.map((seg, segIdx) => (
                   <EventSegment
                     key={`${seg.event.id}-${seg.rowStart}-${segIdx}`}
-                    event={seg.event}
+                    segment={seg}
                     slot={segmentSlots.get(seg) || 0}
-                    span={seg.colEnd - seg.colStart}
-                    sizes={sizes}
                   />
                 ))}
               </div>

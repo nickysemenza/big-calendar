@@ -46,11 +46,24 @@ describe("computeEventSegments", () => {
       31,
       25,
     );
+    // Edges: rounded only where the event actually starts/ends
     expect(segmentsByRow.get(0)).toMatchObject([
-      { rowStart: 0, colStart: 23, colEnd: 25 },
+      {
+        rowStart: 0,
+        colStart: 23,
+        colEnd: 25,
+        isEventStart: true,
+        isEventEnd: false,
+      },
     ]);
     expect(segmentsByRow.get(1)).toMatchObject([
-      { rowStart: 1, colStart: 0, colEnd: 3 },
+      {
+        rowStart: 1,
+        colStart: 0,
+        colEnd: 3,
+        isEventStart: false,
+        isEventEnd: true,
+      },
     ]);
   });
 
@@ -64,7 +77,10 @@ describe("computeEventSegments", () => {
       31,
       25,
     );
-    expect(segmentsByRow.get(0)).toMatchObject([{ colStart: 0, colEnd: 2 }]);
+    // A clamped start is a continuation, not a real event start
+    expect(segmentsByRow.get(0)).toMatchObject([
+      { colStart: 0, colEnd: 2, isEventStart: false, isEventEnd: true },
+    ]);
   });
 
   it("skips events entirely outside the visible range", () => {
@@ -89,10 +105,22 @@ describe("computeMonthEventSegments", () => {
     const { segmentsByRow } = computeMonthEventSegments(events, 2025);
     // Jan 30-31 in row 0, Feb 1-2 in row 1 (end exclusive)
     expect(segmentsByRow.get(0)).toMatchObject([
-      { rowStart: 0, colStart: 29, colEnd: 31 },
+      {
+        rowStart: 0,
+        colStart: 29,
+        colEnd: 31,
+        isEventStart: true,
+        isEventEnd: false,
+      },
     ]);
     expect(segmentsByRow.get(1)).toMatchObject([
-      { rowStart: 1, colStart: 0, colEnd: 2 },
+      {
+        rowStart: 1,
+        colStart: 0,
+        colEnd: 2,
+        isEventStart: false,
+        isEventEnd: true,
+      },
     ]);
   });
 });
@@ -103,7 +131,14 @@ describe("assignSlots", () => {
     colEnd: number,
     rowStart = 0,
   ): EventSegmentData {
-    return { event: makeConsolidated(), rowStart, colStart, colEnd };
+    return {
+      event: makeConsolidated(),
+      rowStart,
+      colStart,
+      colEnd,
+      isEventStart: true,
+      isEventEnd: true,
+    };
   }
 
   it("stacks overlapping segments and reuses freed slots", () => {
@@ -119,12 +154,15 @@ describe("assignSlots", () => {
 });
 
 describe("computeRowHeights", () => {
-  it("grows rows with stacked events past the minimum height", () => {
+  it("emits CSS-var heights so media queries control actual sizes", () => {
     const maxSlotPerRow = new Map([
-      [0, -1], // no events
-      [1, 3], // 4 stacked events: 11 + 4*10 + 4 = 55 > 26
+      [0, -1], // no events -> plain minimum
+      [1, 3], // 4 stacked events -> computed from header + event heights
     ]);
     const result = computeRowHeights(maxSlotPerRow, 2);
-    expect(result).toBe("minmax(26px, 1fr) minmax(55px, 1fr)");
+    expect(result).toBe(
+      "minmax(var(--cal-row-min), 1fr) " +
+        "minmax(max(var(--cal-row-min), calc(var(--cal-header-h) + 4 * var(--cal-event-h) + 4px)), 1fr)",
+    );
   });
 });

@@ -1,34 +1,32 @@
-import type { ConsolidatedEvent } from "../../lib/consolidate";
-import type { SizeConfig } from "../../lib/segments";
+import type { EventSegmentData } from "../../lib/segments";
 import { getStripedBackground } from "./helpers";
 
 interface EventSegmentProps {
-  event: ConsolidatedEvent;
+  segment: EventSegmentData;
   slot: number;
-  span: number;
-  sizes: SizeConfig;
   headerOffset?: number; // Optional adjustment for header height (e.g., -2 for month view)
 }
 
 export function EventSegment({
-  event,
+  segment,
   slot,
-  span,
-  sizes,
   headerOffset = 0,
 }: EventSegmentProps) {
+  const { event } = segment;
+  const span = segment.colEnd - segment.colStart;
   const isMultiDay = span > 1;
-  const topOffset =
-    sizes.headerHeight + headerOffset + slot * sizes.eventHeight;
+  const edgeClasses = `${segment.isEventStart ? "" : "event-segment-continues-left"} ${
+    segment.isEventEnd ? "" : "event-segment-continues-right"
+  }`;
 
   return (
     <div
-      class={`event-segment ${isMultiDay ? "event-segment-multiday" : "event-segment-singleday"}`}
+      class={`event-segment ${isMultiDay ? "event-segment-multiday" : "event-segment-singleday"} ${edgeClasses}`}
       style={`
         background: ${getStripedBackground(event.colors)};
         position: absolute;
         left: 2px;
-        top: ${topOffset}px;
+        top: calc(var(--cal-header-h) + ${slot} * var(--cal-event-h) + ${headerOffset}px);
         width: calc(${span * 100}% - 4px);
         z-index: ${20 + slot};
         ${!event.isAllDay ? "opacity: 0.7;" : ""}
